@@ -36,8 +36,8 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 | Milestone | Description | Status |
 |---|---|---|
 | **M0** | Scaffold — Tauri v2 + React 19 + typed IPC, `ping` health-check, 9-cell hello-grid | ✅ Done |
-| **M1** | Grid engine — resizable / mergeable cells, preset layouts, drag-and-drop panel placement | Planned |
-| **M2** | Panel host architecture + Web/URL panel (iframe) | Planned |
+| **M1** | Grid engine — preset layouts (4/6/8/9/12), draggable splitters to resize tracks, merge/split adjacent cells | ✅ Done |
+| **M2** | Panel host + pluggable panel-type interface, drag-and-drop panel placement, Web/URL panel (iframe) | Planned |
 | **M3** | Terminal panel (portable-pty + xterm.js) | Planned |
 | **M4** | System Monitor panel (sysinfo) | Planned |
 | **M5** | File Browser panel | Planned |
@@ -63,4 +63,4 @@ pnpm test
 pnpm build
 ```
 
-Rust code lives in `src-tauri/`. IPC commands are declared in `src-tauri/src/commands/` and exposed via the typed `src/lib/ipc.ts` wrapper on the frontend.
+Rust code lives in `src-tauri/`. IPC commands are declared in `src-tauri/src/commands.rs` and exposed via the typed `src/lib/ipc.ts` wrapper on the frontend.
