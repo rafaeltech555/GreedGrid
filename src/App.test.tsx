@@ -2,14 +2,20 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import App from "./App";
 
-// M0 smoke test: outside the Tauri webview, App must render the placeholder grid
-// and report that no backend is attached (no invoke() call is made).
-describe("App (M0 scaffold)", () => {
-  it("renders the brand and the 9 placeholder cells", () => {
+// Smoke test: outside the Tauri webview, App renders the toolbar + grid and
+// reports that no backend is attached (no invoke() call is made).
+describe("App", () => {
+  it("renders the brand and the default 4-cell grid", () => {
     render(<App />);
     expect(screen.getByText("Greed")).toBeInTheDocument();
-    expect(screen.getByText("cell 1")).toBeInTheDocument();
-    expect(screen.getByText("cell 9")).toBeInTheDocument();
+    // default preset is 4 -> four empty drop-target cells
+    expect(screen.getAllByText("empty")).toHaveLength(4);
+  });
+
+  it("renders the layout toolbar presets", () => {
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Merge" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "9" })).toBeInTheDocument();
   });
 
   it("reports no Tauri backend when run in a plain browser/jsdom", () => {

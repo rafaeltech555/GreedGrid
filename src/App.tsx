@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { isTauri, ping } from "./lib/ipc";
-
-// M0 placeholder: a static 3×3 "hello grid" that proves the window, Tailwind,
-// and the Rust IPC seam all work. The real interactive grid engine (presets,
-// draggable splitters, merge) replaces this in M1.
-const PLACEHOLDER_CELLS = Array.from({ length: 9 }, (_, i) => i + 1);
+import { Toolbar } from "./components/Toolbar";
+import { GridHost } from "./grid/GridHost";
 
 function App() {
   const [backend, setBackend] = useState<string>("…");
@@ -30,15 +27,10 @@ function App() {
         </span>
       </header>
 
-      <main className="grid flex-1 grid-cols-3 grid-rows-3 gap-1 p-1">
-        {PLACEHOLDER_CELLS.map((n) => (
-          <div
-            key={n}
-            className="flex items-center justify-center rounded-md border border-white/10 bg-white/[0.03] text-white/30"
-          >
-            <span className="text-xs">cell {n}</span>
-          </div>
-        ))}
+      <Toolbar />
+
+      <main className="flex-1 p-1">
+        <GridHost />
       </main>
     </div>
   );
