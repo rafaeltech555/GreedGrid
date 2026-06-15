@@ -1,0 +1,66 @@
+# GreedGrid
+
+> *greed × grid* — a screen-splitting monitoring dashboard as a desktop app.
+
+GreedGrid is a **Tauri v2** desktop application that turns one window into a resizable, mergeable grid of pluggable monitoring panels. Pick a cell-count preset (4 / 6 / 8 / 9 / 12 cells), drag panel types into cells, and save the whole layout as a named workspace.
+
+**GreedGrid is not a window manager.** It hosts its own panels inside the app — it does not reparent external OS windows. Panel types are designed to be pluggable, so an "embed external X11 window" type can be added in the future without reworking the core.
+
+---
+
+## Panel Types (v1 roadmap)
+
+| Panel | Technology |
+|---|---|
+| **Terminal** | portable-pty + Tauri Channel + xterm.js |
+| **File Browser** | Custom Rust file-system commands |
+| **Web / URL** | iframe (webview) |
+| **System Monitor** | sysinfo crate |
+
+---
+
+## Tech Stack
+
+- **Desktop shell:** Tauri v2 (Rust)
+- **UI:** React 19 + Vite 7 + TypeScript
+- **State:** Zustand
+- **Styles:** Tailwind CSS v4
+- **Tests:** Vitest + Testing Library
+- **Package manager:** pnpm
+- **Target platform:** Linux X11 / Cinnamon (cross-platform capable)
+
+---
+
+## Roadmap
+
+| Milestone | Description | Status |
+|---|---|---|
+| **M0** | Scaffold — Tauri v2 + React 19 + typed IPC, `ping` health-check, 9-cell hello-grid | ✅ Done |
+| **M1** | Grid engine — resizable / mergeable cells, preset layouts, drag-and-drop panel placement | Planned |
+| **M2** | Panel host architecture + Web/URL panel (iframe) | Planned |
+| **M3** | Terminal panel (portable-pty + xterm.js) | Planned |
+| **M4** | System Monitor panel (sysinfo) | Planned |
+| **M5** | File Browser panel | Planned |
+| **M6** | Workspace persistence — save / load named layouts as JSON | Planned |
+
+---
+
+## Development
+
+**Prerequisites:** Rust toolchain, Node.js, pnpm, and the [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS.
+
+```bash
+# Install JS dependencies
+pnpm install
+
+# Start dev server (Vite + Tauri hot-reload)
+pnpm tauri dev
+
+# Run unit tests
+pnpm test
+
+# Production build
+pnpm build
+```
+
+Rust code lives in `src-tauri/`. IPC commands are declared in `src-tauri/src/commands/` and exposed via the typed `src/lib/ipc.ts` wrapper on the frontend.

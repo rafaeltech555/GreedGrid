@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* GreedGrid runs as a full-window dashboard: no document scroll, the grid owns
+   all available space. Panels manage their own internal scrolling. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background-color: #0b0f14;
+  color: #e6edf3;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
