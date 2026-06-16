@@ -59,7 +59,7 @@ export function GridCell({ cell }: GridCellProps) {
       {cell.panel && panelDef ? (
         <>
           <panelDef.View instanceId={cell.panel.instanceId} config={cell.panel.config} />
-          <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
+          <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex group-focus-within:flex">
             <button
               aria-label="Panel settings"
               onClick={() => openEditModal(cell.id, cell.panel!.kind)}
