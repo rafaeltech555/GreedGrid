@@ -132,4 +132,18 @@ describe("panel actions", () => {
     s().applyPreset(6);
     expect(destroyed).toEqual(["id-1"]);
   });
+
+  it("mergeSelected fires onDestroy for panels in absorbed cells", () => {
+    // place panels in two adjacent cells, then merge them
+    s().setPanel(cellId(1, 1), "web", undefined, () => "id-keep");
+    s().setPanel(cellId(2, 1), "web", undefined, () => "id-absorbed");
+    destroyed.length = 0; // ignore any destroys from placement
+    [cellId(1, 1), cellId(2, 1), cellId(1, 2), cellId(2, 2)].forEach((id) =>
+      s().toggleSelect(id),
+    );
+    s().mergeSelected();
+    // top-left panel (id-keep) survives in the merged cell; id-absorbed is destroyed
+    expect(destroyed).toContain("id-absorbed");
+    expect(destroyed).not.toContain("id-keep");
+  });
 });

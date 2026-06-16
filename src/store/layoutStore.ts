@@ -94,6 +94,8 @@ export const useLayoutStore = create<LayoutState>((set) => ({
     set((s) => {
       const def = getPanelType(kind);
       if (!def) return s;
+      const target = s.layout.cells.find((c) => c.id === cellId);
+      if (!target) return s;
       const after: GridLayout = {
         ...s.layout,
         cells: s.layout.cells.map((c) =>
