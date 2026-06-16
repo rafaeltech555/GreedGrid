@@ -75,6 +75,8 @@ export const useLayoutStore = create<LayoutState>((set) => ({
       return { layout: after, selectedIds: [] };
     }),
 
+  // No fireDestroyed needed: a merged cell holds only the top-left panel, which
+  // splitCell preserves in the top-left fragment — split never drops a live panel.
   splitSelected: () =>
     set((s) => {
       if (!selectionSplittable(s)) return s;

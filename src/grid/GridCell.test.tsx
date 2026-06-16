@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GridCell } from "./GridCell";
 import { useLayoutStore } from "../store/layoutStore";
@@ -8,6 +8,7 @@ import { __clearRegistry, registerPanel } from "../panels/registry";
 import { makePreset } from "./presets";
 import { cellId } from "./cellId";
 import type { PanelTypeDef } from "../panels/types";
+import { PANEL_KIND_DND } from "../panels/dnd";
 
 const webDef: PanelTypeDef = {
   kind: "web",
@@ -58,6 +59,21 @@ describe("GridCell", () => {
       cellId: cellId(1, 1),
       kind: "web",
       mode: "edit",
+    });
+  });
+
+  it("dropping a palette kind on an empty cell starts placement", () => {
+    render(<GridCell cell={cellOf(cellId(1, 1))} />);
+    const cellEl = screen.getByTestId(`cell-${cellId(1, 1)}`);
+    const dataTransfer = {
+      getData: (type: string) => (type === PANEL_KIND_DND ? "web" : ""),
+    };
+    fireEvent.drop(cellEl, { dataTransfer });
+    // web is not ready by default (empty url) -> placement opens the create modal
+    expect(usePanelUiStore.getState().modal).toEqual({
+      cellId: cellId(1, 1),
+      kind: "web",
+      mode: "create",
     });
   });
 });
