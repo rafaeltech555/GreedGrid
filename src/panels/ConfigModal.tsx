@@ -22,7 +22,11 @@ export function ConfigModal() {
     } else {
       setDraft({ ...def.defaultConfig() });
     }
-    // Re-seed only when the modal identity changes.
+    // Re-seed only when the modal identity changes. NOTE: if openEditModal is
+    // called twice with identical args without an intervening closeModal, this
+    // effect won't re-run and the draft keeps its prior state. Current UX (open
+    // always pairs with a close) prevents this; revisit if edit is ever
+    // triggered programmatically.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal?.cellId, modal?.kind, modal?.mode]);
 
@@ -49,8 +53,11 @@ export function ConfigModal() {
       <div
         className="w-80 rounded-lg border border-white/10 bg-neutral-900 p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal={true}
+        aria-labelledby="config-modal-title"
       >
-        <h2 className="mb-3 text-sm font-medium text-white/80">
+        <h2 id="config-modal-title" className="mb-3 text-sm font-medium text-white/80">
           {def.label} settings
         </h2>
         <Form config={draft} onChange={setDraft} />
