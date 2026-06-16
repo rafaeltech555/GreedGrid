@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { isTauri, ping } from "./lib/ipc";
 import { Toolbar } from "./components/Toolbar";
 import { GridHost } from "./grid/GridHost";
+import { registerAllPanels } from "./panels";
+import { Palette } from "./panels/Palette";
+import { ConfigModal } from "./panels/ConfigModal";
+
+registerAllPanels();
 
 function App() {
   const [backend, setBackend] = useState<string>("…");
@@ -29,9 +34,13 @@ function App() {
 
       <Toolbar />
 
-      <main className="flex-1 p-1">
-        <GridHost />
-      </main>
+      <div className="flex flex-1 overflow-hidden">
+        <Palette />
+        <main className="flex-1 p-1">
+          <GridHost />
+        </main>
+      </div>
+      <ConfigModal />
     </div>
   );
 }
