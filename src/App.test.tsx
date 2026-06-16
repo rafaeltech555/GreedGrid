@@ -8,8 +8,8 @@ describe("App", () => {
   it("renders the brand and the default 4-cell grid", () => {
     render(<App />);
     expect(screen.getByText("Greed")).toBeInTheDocument();
-    // default preset is 4 -> four empty drop-target cells
-    expect(screen.getAllByText("empty")).toHaveLength(4);
+    // default preset is 4 -> four empty cells, each offering a + to add a panel
+    expect(screen.getAllByRole("button", { name: "+" })).toHaveLength(4);
   });
 
   it("renders the layout toolbar presets", () => {

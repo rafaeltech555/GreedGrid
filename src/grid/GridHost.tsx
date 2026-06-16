@@ -27,8 +27,6 @@ function boundaryCenters(tracks: number[], areaPx: number, gap: number): number[
  */
 export function GridHost() {
   const layout = useLayoutStore((s) => s.layout);
-  const selectedIds = useLayoutStore((s) => s.selectedIds);
-  const toggleSelect = useLayoutStore((s) => s.toggleSelect);
   const setCols = useLayoutStore((s) => s.setCols);
   const setRows = useLayoutStore((s) => s.setRows);
 
@@ -37,7 +35,6 @@ export function GridHost() {
   const dragStart = useRef<number[] | null>(null);
 
   const { cols, rows, gap } = layout.grid;
-  const selected = new Set(selectedIds);
 
   const areaW = Math.max(0, size.width - (cols.length - 1) * gap);
   const areaH = Math.max(0, size.height - (rows.length - 1) * gap);
@@ -55,12 +52,7 @@ export function GridHost() {
         }}
       >
         {layout.cells.map((cell) => (
-          <GridCell
-            key={cell.id}
-            cell={cell}
-            selected={selected.has(cell.id)}
-            onToggleSelect={toggleSelect}
-          />
+          <GridCell key={cell.id} cell={cell} />
         ))}
       </div>
 
