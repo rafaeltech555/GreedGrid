@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   selectionMergeable,
   selectionSplittable,
@@ -6,6 +6,8 @@ import {
 } from "./layoutStore";
 import { cellId } from "../grid/cellId";
 import { makePreset } from "../grid/presets";
+import { __clearRegistry, registerPanel } from "../panels/registry";
+import type { PanelTypeDef } from "../panels/types";
 
 // Reset the store to a known state before each test.
 beforeEach(() => {
@@ -13,6 +15,23 @@ beforeEach(() => {
 });
 
 const s = () => useLayoutStore.getState();
+
+const destroyed: string[] = [];
+const webDef: PanelTypeDef = {
+  kind: "web",
+  label: "Web",
+  glyph: "🌐",
+  defaultConfig: () => ({ url: "" }),
+  ready: (c) => typeof c.url === "string" && c.url.trim().length > 0,
+  ConfigForm: () => null,
+  View: () => null,
+  onDestroy: (instanceId) => destroyed.push(instanceId),
+};
+
+const makeIdGen = () => {
+  let n = 0;
+  return () => `id-${++n}`;
+};
 
 describe("layoutStore", () => {
   it("applyPreset swaps the grid and clears selection", () => {
@@ -58,5 +77,59 @@ describe("layoutStore", () => {
     s().applyPreset(4);
     s().setCols([2, 1]);
     expect(s().layout.grid.cols).toEqual([2, 1]);
+  });
+});
+
+describe("panel actions", () => {
+  beforeEach(() => {
+    destroyed.length = 0;
+    __clearRegistry();
+    registerPanel(webDef);
+    useLayoutStore.setState({ layout: makePreset(4), selectedIds: [] });
+  });
+  afterEach(() => __clearRegistry());
+
+  it("setPanel places a panel with a generated instanceId and default config", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
+    const cell = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    expect(cell.panel).toEqual({
+      instanceId: "id-1",
+      kind: "web",
+      config: { url: "" },
+    });
+  });
+
+  it("setPanel honors an explicit initial config", () => {
+    s().setPanel(cellId(1, 1), "web", { url: "https://a" }, makeIdGen());
+    const cell = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    expect(cell.panel?.config).toEqual({ url: "https://a" });
+  });
+
+  it("updatePanelConfig replaces config but keeps instanceId", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
+    s().updatePanelConfig(cellId(1, 1), { url: "https://b" });
+    const cell = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    expect(cell.panel?.instanceId).toBe("id-1");
+    expect(cell.panel?.config).toEqual({ url: "https://b" });
+    expect(destroyed).toEqual([]);
+  });
+
+  it("clearPanel removes the panel and fires onDestroy", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
+    s().clearPanel(cellId(1, 1));
+    expect(s().layout.cells.find((c) => c.id === cellId(1, 1))?.panel).toBeNull();
+    expect(destroyed).toEqual(["id-1"]);
+  });
+
+  it("setPanel over an existing panel fires onDestroy for the old one", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
+    s().setPanel(cellId(1, 1), "web", { url: "https://c" }, () => "id-2");
+    expect(destroyed).toEqual(["id-1"]);
+  });
+
+  it("applyPreset fires onDestroy for every existing panel", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
+    s().applyPreset(6);
+    expect(destroyed).toEqual(["id-1"]);
   });
 });

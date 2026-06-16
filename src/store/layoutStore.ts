@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import type { GridLayout } from "../lib/types";
+import type { GridLayout, PanelKind } from "../lib/types";
 import { makePreset, type PresetCount } from "../grid/presets";
 import { canMerge, isMerged, mergeCells, splitCell } from "../grid/merge";
+import { getPanelType } from "../panels/registry";
+import { panelsRemoved } from "../panels/lifecycle";
 
 interface LayoutState {
   /** The persisted-shape layout document (geometry + cells). */
@@ -16,6 +18,14 @@ interface LayoutState {
   splitSelected: () => void;
   setCols: (cols: number[]) => void;
   setRows: (rows: number[]) => void;
+  setPanel: (
+    cellId: string,
+    kind: PanelKind,
+    initialConfig?: Record<string, unknown>,
+    idGen?: () => string,
+  ) => void;
+  updatePanelConfig: (cellId: string, config: Record<string, unknown>) => void;
+  clearPanel: (cellId: string) => void;
 }
 
 /** Whether the current selection can be merged into one cell. */
@@ -30,12 +40,23 @@ export function selectionSplittable(s: LayoutState): boolean {
   return cell != null && isMerged(cell);
 }
 
+/** Fire onDestroy for every panel that exists in `before` but not `after`. */
+function fireDestroyed(before: GridLayout, after: GridLayout): void {
+  for (const panel of panelsRemoved(before, after)) {
+    getPanelType(panel.kind)?.onDestroy?.(panel.instanceId, panel.config);
+  }
+}
+
 export const useLayoutStore = create<LayoutState>((set) => ({
   layout: makePreset(4),
   selectedIds: [],
 
   applyPreset: (count) =>
-    set({ layout: makePreset(count), selectedIds: [] }),
+    set((s) => {
+      const after = makePreset(count);
+      fireDestroyed(s.layout, after);
+      return { layout: after, selectedIds: [] };
+    }),
 
   toggleSelect: (id) =>
     set((s) => ({
@@ -49,10 +70,9 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   mergeSelected: () =>
     set((s) => {
       if (!canMerge(s.layout, s.selectedIds)) return s;
-      return {
-        layout: mergeCells(s.layout, s.selectedIds),
-        selectedIds: [],
-      };
+      const after = mergeCells(s.layout, s.selectedIds);
+      fireDestroyed(s.layout, after);
+      return { layout: after, selectedIds: [] };
     }),
 
   splitSelected: () =>
@@ -69,4 +89,51 @@ export const useLayoutStore = create<LayoutState>((set) => ({
 
   setRows: (rows) =>
     set((s) => ({ layout: { ...s.layout, grid: { ...s.layout.grid, rows } } })),
+
+  setPanel: (cellId, kind, initialConfig, idGen = () => crypto.randomUUID()) =>
+    set((s) => {
+      const def = getPanelType(kind);
+      if (!def) return s;
+      const after: GridLayout = {
+        ...s.layout,
+        cells: s.layout.cells.map((c) =>
+          c.id === cellId
+            ? {
+                ...c,
+                panel: {
+                  instanceId: idGen(),
+                  kind,
+                  config: initialConfig ?? def.defaultConfig(),
+                },
+              }
+            : c,
+        ),
+      };
+      fireDestroyed(s.layout, after);
+      return { layout: after };
+    }),
+
+  updatePanelConfig: (cellId, config) =>
+    set((s) => ({
+      layout: {
+        ...s.layout,
+        cells: s.layout.cells.map((c) =>
+          c.id === cellId && c.panel
+            ? { ...c, panel: { ...c.panel, config } }
+            : c,
+        ),
+      },
+    })),
+
+  clearPanel: (cellId) =>
+    set((s) => {
+      const after: GridLayout = {
+        ...s.layout,
+        cells: s.layout.cells.map((c) =>
+          c.id === cellId ? { ...c, panel: null } : c,
+        ),
+      };
+      fireDestroyed(s.layout, after);
+      return { layout: after };
+    }),
 }));
