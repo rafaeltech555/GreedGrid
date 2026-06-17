@@ -1,0 +1,101 @@
+import { useEffect, useRef } from "react";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { Channel } from "@tauri-apps/api/core";
+import "@xterm/xterm/css/xterm.css";
+import type { ConfigFormProps, PanelViewProps } from "../types";
+import type { TermConfig } from "./types";
+import { isTauri, termOpen, termResize, termWrite } from "../../lib/ipc";
+
+/** Live view: an xterm.js terminal bound to a backend pty via a Tauri Channel.
+ *  The pty outlives this component (keyed by instanceId); unmount detaches the
+ *  output channel but never calls term_close — that is the panel's onDestroy. */
+export function TerminalView({ instanceId, config }: PanelViewProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isTauri()) return; // no backend in a plain browser; see placeholder below
+    const host = hostRef.current;
+    if (!host) return;
+
+    const term = new Terminal({ fontSize: 13, cursorBlink: true });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(host);
+    fit.fit();
+
+    // Route pty output → xterm. Bytes arrive as a number[] (Rust Vec<u8>).
+    const channel = new Channel<Uint8Array>();
+    let detached = false;
+    channel.onmessage = (msg) => {
+      if (!detached) term.write(new Uint8Array(msg));
+    };
+
+    const cfg = config as TermConfig;
+    void termOpen(instanceId, cfg, term.cols, term.rows, channel);
+
+    // Keystrokes → pty.
+    const dataSub = term.onData((data) =>
+      termWrite(instanceId, new TextEncoder().encode(data)),
+    );
+
+    // Resize → fit + notify pty.
+    const observer = new ResizeObserver(() => {
+      try {
+        fit.fit();
+        void termResize(instanceId, term.cols, term.rows);
+      } catch {
+        // host detached mid-observation; ignore
+      }
+    });
+    observer.observe(host);
+
+    return () => {
+      detached = true; // stop writing late channel messages into a disposed term
+      observer.disconnect();
+      dataSub.dispose();
+      term.dispose();
+      // NOTE: intentionally NOT calling termClose — the pty survives unmount and
+      // reconnects (replaying scrollback) when this instanceId remounts.
+    };
+  }, [instanceId, config]);
+
+  if (!isTauri()) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-2 text-center text-xs text-white/30">
+        Terminal requires the desktop app (no pty backend in browser).
+      </div>
+    );
+  }
+
+  return <div ref={hostRef} className="h-full w-full bg-black" />;
+}
+
+/** Config form: optional shell + working directory overrides. */
+export function TerminalConfigForm({ config, onChange }: ConfigFormProps) {
+  const cfg = config as TermConfig;
+  return (
+    <div className="flex flex-col gap-2 text-xs text-white/70">
+      <label className="flex flex-col gap-1">
+        Shell (blank = $SHELL)
+        <input
+          type="text"
+          value={cfg.shell ?? ""}
+          placeholder="/bin/bash"
+          onChange={(e) => onChange({ ...config, shell: e.target.value })}
+          className="rounded border border-white/15 bg-black/30 px-2 py-1 text-white outline-none focus:border-emerald-400/60"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        Working directory (blank = $HOME)
+        <input
+          type="text"
+          value={cfg.cwd ?? ""}
+          placeholder="/home/you"
+          onChange={(e) => onChange({ ...config, cwd: e.target.value })}
+          className="rounded border border-white/15 bg-black/30 px-2 py-1 text-white outline-none focus:border-emerald-400/60"
+        />
+      </label>
+    </div>
+  );
+}
