@@ -26,33 +26,33 @@ export function FileView({ config }: PanelViewProps) {
   const [renameVal, setRenameVal] = useState("");
   const [pendingDelete, setPendingDelete] = useState<FileEntry | null>(null);
 
-  const reload = (target?: string) => {
+  // List `target` and commit it only on success: a failed listing (e.g. a
+  // permission-denied directory) leaves the current path + entries intact and
+  // just surfaces the error, instead of stranding the view on a broken path with
+  // the previous directory's stale entries. Used for the initial load, every
+  // navigation, and the post-mutation refresh.
+  const openDir = (target?: string) => {
     fsList(target)
       .then((res) => {
         setPath(res.path); // adopt the canonical path
         setEntries(res.entries);
         setError(null);
+        // entering a directory cancels any in-progress inline edit so it can't
+        // target a same-named entry in the destination
+        setRenaming(null);
+        setCreating(false);
+        setNewName("");
       })
       .catch((e) => setError(String(e)));
   };
 
-  // Changing directory resets any in-progress inline edit, so a stale rename or
-  // new-folder input can't target a same-named entry in the destination dir.
-  const navigate = (p: string) => {
-    setRenaming(null);
-    setCreating(false);
-    setNewName("");
-    setPath(p);
-  };
-
   useEffect(() => {
     if (!isTauri()) return;
-    reload(path);
-    // `reload` takes its target as a param and does not close over `path`, so it
-    // is intentionally omitted from deps; adding it (recreated each render) would
-    // loop. Re-list only when the target path changes.
+    openDir(cfg.path);
+    // Mount-only: list the initial directory. Navigation and the post-mutation
+    // refresh call openDir directly, so this effect must not re-run on state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path]);
+  }, []);
 
   if (!isTauri()) {
     return (
@@ -70,7 +70,7 @@ export function FileView({ config }: PanelViewProps) {
       .then(() => {
         setCreating(false);
         setNewName("");
-        reload(here);
+        openDir(here);
       })
       .catch((e) => setError(String(e)));
   };
@@ -80,7 +80,7 @@ export function FileView({ config }: PanelViewProps) {
     fsRename(joinPath(here, entry.name), renameVal)
       .then(() => {
         setRenaming(null);
-        reload(here);
+        openDir(here);
       })
       .catch((e) => setError(String(e)));
   };
@@ -89,7 +89,7 @@ export function FileView({ config }: PanelViewProps) {
     fsDelete(joinPath(here, entry.name))
       .then(() => {
         setPendingDelete(null);
-        reload(here);
+        openDir(here);
       })
       .catch((e) => {
         setPendingDelete(null);
@@ -137,7 +137,7 @@ export function FileView({ config }: PanelViewProps) {
         )}
 
         <button
-          onClick={() => navigate(parentPath(here))}
+          onClick={() => openDir(parentPath(here))}
           className="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-white/5"
         >
           <span aria-hidden>📁</span> ..
@@ -164,7 +164,7 @@ export function FileView({ config }: PanelViewProps) {
               <button
                 onClick={() =>
                   entry.isDir
-                    ? navigate(joinPath(here, entry.name))
+                    ? openDir(joinPath(here, entry.name))
                     : openInDefaultApp(joinPath(here, entry.name)).catch((e) =>
                         setError(String(e)),
                       )
