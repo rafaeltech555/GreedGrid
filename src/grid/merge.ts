@@ -114,6 +114,57 @@ export function mergeCells(layout: GridLayout, ids: string[]): GridLayout {
   return { ...layout, cells: [...remaining, merged] };
 }
 
+/** 一段未被 spanning cell 跨越的 cross-axis track 連續區間(1-based, inclusive)。 */
+export interface SplitterSegment {
+  start: number;
+  end: number;
+}
+
+/**
+ * 給定 cells、邊界軸與邊界 index,回傳該邊界上「沒有 cell 跨越」的 cross-axis
+ * track 連續區間清單。
+ *
+ * 座標(沿用本檔 1-based track 約定):
+ * - axis="col" 時,邊界 `boundaryIndex` 位於 column k 與 k+1 之間;cell 跨越它
+ *   當 `cell.col <= k && cell.col + cell.colSpan - 1 >= k+1`,遮蔽其 row 範圍。
+ * - axis="row" 對稱(交換 col/row)。
+ *
+ * 無 merge → 整條一段;被跨越處切掉,中間可留洞。
+ */
+export function boundarySegments(
+  cells: Cell[],
+  axis: "col" | "row",
+  boundaryIndex: number,
+  crossTrackCount: number,
+): SplitterSegment[] {
+  const occluded = new Array<boolean>(crossTrackCount + 1).fill(false);
+  for (const c of cells) {
+    const crosses =
+      axis === "col"
+        ? c.col <= boundaryIndex && c.col + c.colSpan - 1 >= boundaryIndex + 1
+        : c.row <= boundaryIndex && c.row + c.rowSpan - 1 >= boundaryIndex + 1;
+    if (!crosses) continue;
+    const lo = axis === "col" ? c.row : c.col;
+    const hi = axis === "col" ? c.row + c.rowSpan - 1 : c.col + c.colSpan - 1;
+    for (let t = lo; t <= hi; t++) {
+      if (t >= 1 && t <= crossTrackCount) occluded[t] = true;
+    }
+  }
+
+  const segments: SplitterSegment[] = [];
+  let runStart: number | null = null;
+  for (let t = 1; t <= crossTrackCount; t++) {
+    if (!occluded[t]) {
+      if (runStart === null) runStart = t;
+    } else if (runStart !== null) {
+      segments.push({ start: runStart, end: t - 1 });
+      runStart = null;
+    }
+  }
+  if (runStart !== null) segments.push({ start: runStart, end: crossTrackCount });
+  return segments;
+}
+
 /**
  * Split a merged cell back into span-1 cells, one per track it covered. The
  * top-left fragment inherits the panel; the rest become empty. No-op for an

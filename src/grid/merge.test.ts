@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makePreset } from "./presets";
 import {
+  boundarySegments,
   canMerge,
   cellTracks,
   isMerged,
@@ -110,5 +111,41 @@ describe("cellTracks", () => {
     });
     expect(tracks).toHaveLength(4);
     expect(tracks).toContainEqual([3, 2]);
+  });
+});
+
+describe("boundarySegments", () => {
+  const cell = (col: number, row: number, colSpan: number, rowSpan: number) => ({
+    id: cellId(col, row),
+    col,
+    row,
+    colSpan,
+    rowSpan,
+    panel: null,
+  });
+
+  it("no merge: whole boundary is one segment", () => {
+    const cells = makePreset(9).cells;
+    expect(boundarySegments(cells, "col", 1, 3)).toEqual([{ start: 1, end: 3 }]);
+  });
+
+  it("a cell spanning the full boundary leaves no segment", () => {
+    const cells = [cell(1, 1, 2, 3)];
+    expect(boundarySegments(cells, "col", 1, 3)).toEqual([]);
+  });
+
+  it("a partial (top-row) span clips that row only", () => {
+    const cells = [cell(1, 1, 2, 1)];
+    expect(boundarySegments(cells, "col", 1, 3)).toEqual([{ start: 2, end: 3 }]);
+  });
+
+  it("spans at top and bottom leave a hole in the middle", () => {
+    const cells = [cell(1, 1, 2, 1), cell(1, 3, 2, 1)];
+    expect(boundarySegments(cells, "col", 1, 3)).toEqual([{ start: 2, end: 2 }]);
+  });
+
+  it("row axis: a cell spanning row1-2 across all cols blocks row boundary 1", () => {
+    const cells = [cell(1, 1, 3, 2)];
+    expect(boundarySegments(cells, "row", 1, 3)).toEqual([]);
   });
 });
