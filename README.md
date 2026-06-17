@@ -39,13 +39,15 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 | **M1** | Grid engine — preset layouts (4/6/8/9/12), draggable splitters to resize tracks, merge/split adjacent cells | ✅ Done |
 | **M2** | Panel host + pluggable panel-type interface (`PanelTypeDef` registry), empty-cell picker + palette drag-and-drop placement, unified config modal, Web/URL panel (iframe) | ✅ Done |
 | **M3** | Terminal panel — portable-pty PTY backend + xterm.js frontend, output streamed over Tauri Channel, 256 KB scrollback ring buffer, same-run reconnect with scrollback replay, pty killed on panel removal | ✅ Done |
-| **M4** | System Monitor panel (sysinfo) | Planned |
+| **M4** | System Monitor panel — shared background sampler thread (`sysinfo` crate) writes a `SysSnapshot` every 1 s; frontend polls on a configurable interval (default 2 s) and displays CPU%, memory, swap, load average, and uptime with rolling SVG sparklines for CPU% and Mem% | ✅ Done |
 | **M5** | File Browser panel | Planned |
 | **M6** | Workspace persistence — save / load named layouts as JSON | Planned |
 
 > **Note (M2):** The Web/URL panel shipped as iframe-first. A native-webview fallback (for sites that refuse framing via X-Frame-Options/CSP) is deferred to a later phase — it will be the first Rust-side panel work.
 
 > **Note (M3):** The pty is killed on explicit panel removal. Detached-session reattach (M3b) and a UI trigger for scrollback replay on React remount are deferred to a future phase — the same-run reconnect path is covered by a Rust integration test.
+
+> **Note (M4):** Per-core CPU breakdown, network/disk I/O, process list, temperature sensors, history persistence, and alert thresholds are deferred to future milestones.
 
 ---
 
