@@ -38,12 +38,14 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 | **M0** | Scaffold — Tauri v2 + React 19 + typed IPC, `ping` health-check, 9-cell hello-grid | ✅ Done |
 | **M1** | Grid engine — preset layouts (4/6/8/9/12), draggable splitters to resize tracks, merge/split adjacent cells | ✅ Done |
 | **M2** | Panel host + pluggable panel-type interface (`PanelTypeDef` registry), empty-cell picker + palette drag-and-drop placement, unified config modal, Web/URL panel (iframe) | ✅ Done |
-| **M3** | Terminal panel (portable-pty + xterm.js) | Planned |
+| **M3** | Terminal panel — portable-pty PTY backend + xterm.js frontend, output streamed over Tauri Channel, 256 KB scrollback ring buffer, same-run reconnect with scrollback replay, pty killed on panel removal | ✅ Done |
 | **M4** | System Monitor panel (sysinfo) | Planned |
 | **M5** | File Browser panel | Planned |
 | **M6** | Workspace persistence — save / load named layouts as JSON | Planned |
 
 > **Note (M2):** The Web/URL panel shipped as iframe-first. A native-webview fallback (for sites that refuse framing via X-Frame-Options/CSP) is deferred to a later phase — it will be the first Rust-side panel work.
+
+> **Note (M3):** The pty is killed on explicit panel removal. Detached-session reattach (M3b) and a UI trigger for scrollback replay on React remount are deferred to a future phase — the same-run reconnect path is covered by a Rust integration test.
 
 ---
 
@@ -65,4 +67,4 @@ pnpm test
 pnpm build
 ```
 
-Rust code lives in `src-tauri/`. IPC commands are declared in `src-tauri/src/commands.rs` and exposed via the typed `src/lib/ipc.ts` wrapper on the frontend.
+Rust code lives in `src-tauri/`. IPC commands are declared in `src-tauri/src/commands/` (split into per-feature modules) and exposed via the typed `src/lib/ipc.ts` wrapper on the frontend.
