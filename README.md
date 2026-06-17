@@ -8,7 +8,7 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 
 ---
 
-## Panel Types (v1 roadmap)
+## Panel Types
 
 | Panel | Technology |
 |---|---|
@@ -69,8 +69,8 @@ pnpm tauri dev
 # Run unit tests
 pnpm test
 
-# Production build
-pnpm build
+# Production build (full desktop binary)
+pnpm tauri build
 ```
 
 Rust code lives in `src-tauri/`. IPC commands are declared in `src-tauri/src/commands/` (split into per-feature modules) and exposed via the typed `src/lib/ipc.ts` wrapper on the frontend.
