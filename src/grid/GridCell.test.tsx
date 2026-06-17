@@ -76,4 +76,54 @@ describe("GridCell", () => {
       mode: "create",
     });
   });
+
+  describe("select handle", () => {
+    it("empty cell: clicking select handle toggles selectedIds", async () => {
+      const id = cellId(1, 1);
+      render(<GridCell cell={cellOf(id)} />);
+      const handle = screen.getByRole("button", { name: "Select cell" });
+      await userEvent.click(handle);
+      expect(useLayoutStore.getState().selectedIds).toContain(id);
+      await userEvent.click(handle);
+      expect(useLayoutStore.getState().selectedIds).not.toContain(id);
+    });
+
+    it("panel cell: clicking select handle toggles selectedIds", async () => {
+      const id = cellId(1, 1);
+      useLayoutStore.getState().setPanel(id, "web", { url: "https://x" });
+      render(<GridCell cell={cellOf(id)} />);
+      const handle = screen.getByRole("button", { name: "Select cell" });
+      await userEvent.click(handle);
+      expect(useLayoutStore.getState().selectedIds).toContain(id);
+    });
+
+    it("clicking select handle does not open the picker", async () => {
+      const id = cellId(1, 1);
+      render(<GridCell cell={cellOf(id)} />);
+      await userEvent.click(screen.getByRole("button", { name: "Select cell" }));
+      expect(usePanelUiStore.getState().pickerCellId).toBeNull();
+    });
+
+    it("clicking select handle on panel cell does not open any modal", async () => {
+      const id = cellId(1, 1);
+      useLayoutStore.getState().setPanel(id, "web", { url: "https://x" });
+      render(<GridCell cell={cellOf(id)} />);
+      await userEvent.click(screen.getByRole("button", { name: "Select cell" }));
+      expect(usePanelUiStore.getState().modal).toBeNull();
+    });
+
+    it("selected cell outer div has ring-2 ring-emerald-400 class", async () => {
+      const id = cellId(1, 1);
+      render(<GridCell cell={cellOf(id)} />);
+      const cellEl = screen.getByTestId(`cell-${id}`);
+      expect(cellEl.className).not.toMatch(/ring-2/);
+      await userEvent.click(screen.getByRole("button", { name: "Select cell" }));
+      // The click triggers a store update; the component subscribes to selectedIds
+      // via the Zustand selector and re-renders reactively. The already-held
+      // element reference reflects the updated className after re-render.
+      expect(cellEl.className).toMatch(/ring-2/);
+      expect(cellEl.className).toMatch(/ring-inset/);
+      expect(cellEl.className).toMatch(/ring-emerald-400/);
+    });
+  });
 });

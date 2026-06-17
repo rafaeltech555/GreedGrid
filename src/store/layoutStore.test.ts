@@ -34,13 +34,6 @@ const makeIdGen = () => {
 };
 
 describe("layoutStore", () => {
-  it("applyPreset swaps the grid and clears selection", () => {
-    s().toggleSelect(cellId(1, 1));
-    s().applyPreset(4);
-    expect(s().layout.cells).toHaveLength(4);
-    expect(s().selectedIds).toEqual([]);
-  });
-
   it("toggleSelect adds then removes an id", () => {
     s().toggleSelect(cellId(1, 1));
     expect(s().selectedIds).toEqual([cellId(1, 1)]);
@@ -74,13 +67,13 @@ describe("layoutStore", () => {
   });
 
   it("setCols replaces the column ratios", () => {
-    s().applyPreset(4);
+    s().loadLayout(makePreset(4));
     s().setCols([2, 1]);
     expect(s().layout.grid.cols).toEqual([2, 1]);
   });
 
   it("the layout document survives a JSON round-trip (pure data)", () => {
-    s().applyPreset(4);
+    s().loadLayout(makePreset(4));
     const layout = s().layout;
     expect(JSON.parse(JSON.stringify(layout))).toEqual(layout);
   });
@@ -130,12 +123,6 @@ describe("panel actions", () => {
   it("setPanel over an existing panel fires onDestroy for the old one", () => {
     s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
     s().setPanel(cellId(1, 1), "web", { url: "https://c" }, () => "id-2");
-    expect(destroyed).toEqual(["id-1"]);
-  });
-
-  it("applyPreset fires onDestroy for every existing panel", () => {
-    s().setPanel(cellId(1, 1), "web", undefined, makeIdGen());
-    s().applyPreset(6);
     expect(destroyed).toEqual(["id-1"]);
   });
 

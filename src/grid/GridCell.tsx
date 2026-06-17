@@ -18,11 +18,15 @@ export function GridCell({ cell }: GridCellProps) {
   const setPanel = useLayoutStore((s) => s.setPanel);
   const clearPanel = useLayoutStore((s) => s.clearPanel);
   const cells = useLayoutStore((s) => s.layout.cells);
+  const toggleSelect = useLayoutStore((s) => s.toggleSelect);
+  const selectedIds = useLayoutStore((s) => s.selectedIds);
   const pickerCellId = usePanelUiStore((s) => s.pickerCellId);
   const openPicker = usePanelUiStore((s) => s.openPicker);
   const closePicker = usePanelUiStore((s) => s.closePicker);
   const openCreateModal = usePanelUiStore((s) => s.openCreateModal);
   const openEditModal = usePanelUiStore((s) => s.openEditModal);
+
+  const isSelected = selectedIds.includes(cell.id);
 
   const placeKind = (kind: PanelKind) => {
     const def = getPanelType(kind);
@@ -53,9 +57,25 @@ export function GridCell({ cell }: GridCellProps) {
       }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
-      className="group relative overflow-hidden rounded-md border border-white/10 bg-white/[0.03]"
+      className={`group relative overflow-hidden rounded-md border bg-white/[0.03] ${
+        isSelected
+          ? "border-emerald-400 ring-2 ring-inset ring-emerald-400"
+          : "border-white/10"
+      }`}
       data-testid={`cell-${cell.id}`}
     >
+      <button
+        aria-label="Select cell"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleSelect(cell.id);
+        }}
+        className={`absolute left-1 top-1 z-10 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white ${
+          isSelected ? "flex" : "hidden group-hover:flex group-focus-within:flex"
+        }`}
+      >
+        ◉
+      </button>
       {cell.panel && panelDef ? (
         <>
           <panelDef.View instanceId={cell.panel.instanceId} config={cell.panel.config} />

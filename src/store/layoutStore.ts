@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { GridLayout, PanelKind } from "../lib/types";
-import { makePreset, type PresetCount } from "../grid/presets";
+import { makePreset } from "../grid/presets";
 import { canMerge, isMerged, mergeCells, splitCell } from "../grid/merge";
 import { getPanelType } from "../panels/registry";
 import { panelsRemoved } from "../panels/lifecycle";
@@ -11,7 +11,6 @@ interface LayoutState {
   /** Ids of cells currently selected for a merge/split operation (ephemeral). */
   selectedIds: string[];
 
-  applyPreset: (count: PresetCount) => void;
   loadLayout: (layout: GridLayout) => void;
   toggleSelect: (id: string) => void;
   clearSelection: () => void;
@@ -51,13 +50,6 @@ function fireDestroyed(before: GridLayout, after: GridLayout): void {
 export const useLayoutStore = create<LayoutState>((set) => ({
   layout: makePreset(4),
   selectedIds: [],
-
-  applyPreset: (count) =>
-    set((s) => {
-      const after = makePreset(count);
-      fireDestroyed(s.layout, after);
-      return { layout: after, selectedIds: [] };
-    }),
 
   loadLayout: (layout) =>
     set((s) => {
