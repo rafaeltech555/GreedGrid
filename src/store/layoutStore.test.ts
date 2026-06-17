@@ -11,7 +11,7 @@ import type { PanelTypeDef } from "../panels/types";
 
 // Reset the store to a known state before each test.
 beforeEach(() => {
-  useLayoutStore.setState({ layout: makePreset(9), selectedIds: [] });
+  useLayoutStore.setState({ layout: makePreset(9), selectedIds: [], selectMode: false });
 });
 
 const s = () => useLayoutStore.getState();
@@ -55,6 +55,43 @@ describe("layoutStore", () => {
     expect(selectionSplittable(s())).toBe(true);
     s().splitSelected();
     expect(s().layout.cells).toHaveLength(9);
+  });
+
+  it("toggleSelectMode flips selectMode; turning off clears selection", () => {
+    s().toggleSelect(cellId(1, 1));
+    expect(s().selectMode).toBe(false);
+    s().toggleSelectMode();
+    expect(s().selectMode).toBe(true);
+    expect(s().selectedIds).toEqual([cellId(1, 1)]);
+    s().toggleSelectMode();
+    expect(s().selectMode).toBe(false);
+    expect(s().selectedIds).toEqual([]);
+  });
+
+  it("setSelectMode(false) clears selection", () => {
+    s().setSelectMode(true);
+    s().toggleSelect(cellId(1, 1));
+    s().setSelectMode(false);
+    expect(s().selectMode).toBe(false);
+    expect(s().selectedIds).toEqual([]);
+  });
+
+  it("mergeSelected exits select mode on success", () => {
+    s().setSelectMode(true);
+    [cellId(1, 1), cellId(2, 1)].forEach((id) => s().toggleSelect(id));
+    s().mergeSelected();
+    expect(s().selectMode).toBe(false);
+    expect(s().selectedIds).toEqual([]);
+  });
+
+  it("splitSelected exits select mode on success", () => {
+    [cellId(1, 1), cellId(2, 1)].forEach((id) => s().toggleSelect(id));
+    s().mergeSelected();
+    s().setSelectMode(true);
+    s().toggleSelect(cellId(1, 1));
+    s().splitSelected();
+    expect(s().selectMode).toBe(false);
+    expect(s().selectedIds).toEqual([]);
   });
 
   it("does not merge a non-rectangular selection", () => {

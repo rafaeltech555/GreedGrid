@@ -10,10 +10,14 @@ interface LayoutState {
   layout: GridLayout;
   /** Ids of cells currently selected for a merge/split operation (ephemeral). */
   selectedIds: string[];
+  /** 選取模式:開啟時 grid cell 用 overlay 攔截點擊以便選取(ephemeral)。 */
+  selectMode: boolean;
 
   loadLayout: (layout: GridLayout) => void;
   toggleSelect: (id: string) => void;
   clearSelection: () => void;
+  setSelectMode: (on: boolean) => void;
+  toggleSelectMode: () => void;
   mergeSelected: () => void;
   splitSelected: () => void;
   setCols: (cols: number[]) => void;
@@ -50,6 +54,7 @@ function fireDestroyed(before: GridLayout, after: GridLayout): void {
 export const useLayoutStore = create<LayoutState>((set) => ({
   layout: makePreset(4),
   selectedIds: [],
+  selectMode: false,
 
   loadLayout: (layout) =>
     set((s) => {
@@ -66,12 +71,20 @@ export const useLayoutStore = create<LayoutState>((set) => ({
 
   clearSelection: () => set({ selectedIds: [] }),
 
+  setSelectMode: (on) =>
+    set(() => (on ? { selectMode: true } : { selectMode: false, selectedIds: [] })),
+
+  toggleSelectMode: () =>
+    set((s) =>
+      s.selectMode ? { selectMode: false, selectedIds: [] } : { selectMode: true },
+    ),
+
   mergeSelected: () =>
     set((s) => {
       if (!canMerge(s.layout, s.selectedIds)) return s;
       const after = mergeCells(s.layout, s.selectedIds);
       fireDestroyed(s.layout, after);
-      return { layout: after, selectedIds: [] };
+      return { layout: after, selectedIds: [], selectMode: false };
     }),
 
   // No fireDestroyed needed: a merged cell holds only the top-left panel, which
@@ -82,6 +95,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
       return {
         layout: splitCell(s.layout, s.selectedIds[0]),
         selectedIds: [],
+        selectMode: false,
       };
     }),
 
