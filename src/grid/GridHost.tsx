@@ -4,6 +4,8 @@ import { resizeTrack } from "./resize";
 import { useElementSize } from "./useElementSize";
 import { GridCell } from "./GridCell";
 import { Splitter } from "./Splitter";
+import { boundarySegments } from "./merge";
+import { trackSpanPx } from "./trackPx";
 
 const SPLITTER_HIT = 10; // px hit area for grabbing a gutter
 
@@ -56,41 +58,56 @@ export function GridHost() {
         ))}
       </div>
 
-      {/* Column splitters (boundary k is between track k and k+1). */}
-      {colCenters.map((pos, i) => (
-        <Splitter
-          key={`col-${i}`}
-          orientation="col"
-          pos={pos}
-          hit={SPLITTER_HIT}
-          onDragStart={() => (dragStart.current = cols.slice())}
-          onResize={(dx) => {
-            if (!dragStart.current || areaW <= 0) return;
-            const sum = dragStart.current.reduce((a, b) => a + b, 0);
-            const dFr = (dx / areaW) * sum;
-            setCols(resizeTrack(dragStart.current, i, dFr));
-          }}
-          onDragEnd={() => (dragStart.current = null)}
-        />
-      ))}
+      {/* Column splitters — boundary i sits between track i and i+1; render one
+          Splitter per run of rows not crossed by a merged cell. */}
+      {colCenters.flatMap((pos, i) =>
+        boundarySegments(layout.cells, "col", i + 1, rows.length).map((seg) => {
+          const { offset, length } = trackSpanPx(rows, areaH, gap, seg.start, seg.end);
+          return (
+            <Splitter
+              key={`col-${i}-${seg.start}`}
+              orientation="col"
+              pos={pos}
+              hit={SPLITTER_HIT}
+              crossStart={offset}
+              crossLength={length}
+              onDragStart={() => (dragStart.current = cols.slice())}
+              onResize={(dx) => {
+                if (!dragStart.current || areaW <= 0) return;
+                const sum = dragStart.current.reduce((a, b) => a + b, 0);
+                const dFr = (dx / areaW) * sum;
+                setCols(resizeTrack(dragStart.current, i, dFr));
+              }}
+              onDragEnd={() => (dragStart.current = null)}
+            />
+          );
+        }),
+      )}
 
       {/* Row splitters. */}
-      {rowCenters.map((pos, i) => (
-        <Splitter
-          key={`row-${i}`}
-          orientation="row"
-          pos={pos}
-          hit={SPLITTER_HIT}
-          onDragStart={() => (dragStart.current = rows.slice())}
-          onResize={(dy) => {
-            if (!dragStart.current || areaH <= 0) return;
-            const sum = dragStart.current.reduce((a, b) => a + b, 0);
-            const dFr = (dy / areaH) * sum;
-            setRows(resizeTrack(dragStart.current, i, dFr));
-          }}
-          onDragEnd={() => (dragStart.current = null)}
-        />
-      ))}
+      {rowCenters.flatMap((pos, i) =>
+        boundarySegments(layout.cells, "row", i + 1, cols.length).map((seg) => {
+          const { offset, length } = trackSpanPx(cols, areaW, gap, seg.start, seg.end);
+          return (
+            <Splitter
+              key={`row-${i}-${seg.start}`}
+              orientation="row"
+              pos={pos}
+              hit={SPLITTER_HIT}
+              crossStart={offset}
+              crossLength={length}
+              onDragStart={() => (dragStart.current = rows.slice())}
+              onResize={(dy) => {
+                if (!dragStart.current || areaH <= 0) return;
+                const sum = dragStart.current.reduce((a, b) => a + b, 0);
+                const dFr = (dy / areaH) * sum;
+                setRows(resizeTrack(dragStart.current, i, dFr));
+              }}
+              onDragEnd={() => (dragStart.current = null)}
+            />
+          );
+        }),
+      )}
     </div>
   );
 }
