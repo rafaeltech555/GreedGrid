@@ -53,11 +53,13 @@ fn list_in(dir: &Path) -> AppResult<Vec<String>> {
 
 fn delete_in(dir: &Path, name: &str) -> AppResult<()> {
     validate_ws_name(name)?;
-    let path = dir.join(format!("{name}.json"));
-    if path.exists() {
-        fs::remove_file(path)?;
+    // Match on NotFound rather than check-then-remove: "no-op if absent" with no
+    // TOCTOU window.
+    match fs::remove_file(dir.join(format!("{name}.json"))) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.into()),
     }
-    Ok(())
 }
 
 #[tauri::command]
@@ -125,5 +127,13 @@ mod tests {
         p.push(format!("greedgrid-ws-missing-{}", std::process::id()));
         let _ = fs::remove_dir_all(&p);
         assert_eq!(list_in(&p).unwrap(), Vec::<String>::new());
+    }
+
+    #[test]
+    fn delete_in_is_noop_for_absent_file() {
+        let dir = temp_dir("del-absent");
+        // deleting a workspace that doesn't exist is Ok (no-op)
+        delete_in(&dir, "nope").unwrap();
+        fs::remove_dir_all(&dir).unwrap();
     }
 }
