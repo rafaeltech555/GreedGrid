@@ -36,9 +36,21 @@ export function FileView({ config }: PanelViewProps) {
       .catch((e) => setError(String(e)));
   };
 
+  // Changing directory resets any in-progress inline edit, so a stale rename or
+  // new-folder input can't target a same-named entry in the destination dir.
+  const navigate = (p: string) => {
+    setRenaming(null);
+    setCreating(false);
+    setNewName("");
+    setPath(p);
+  };
+
   useEffect(() => {
     if (!isTauri()) return;
     reload(path);
+    // `reload` takes its target as a param and does not close over `path`, so it
+    // is intentionally omitted from deps; adding it (recreated each render) would
+    // loop. Re-list only when the target path changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
@@ -53,7 +65,7 @@ export function FileView({ config }: PanelViewProps) {
   const here = path ?? "";
 
   const doMkdir = () => {
-    if (!isValidName(newName)) return;
+    if (!path || !isValidName(newName)) return;
     fsMkdir(here, newName)
       .then(() => {
         setCreating(false);
@@ -94,7 +106,8 @@ export function FileView({ config }: PanelViewProps) {
         </span>
         <button
           onClick={() => setCreating(true)}
-          className="ml-auto shrink-0 rounded border border-white/10 px-1.5 py-0.5 text-white/60 hover:text-white"
+          disabled={!path}
+          className="ml-auto shrink-0 rounded border border-white/10 px-1.5 py-0.5 text-white/60 hover:text-white disabled:opacity-40"
         >
           + 新資料夾
         </button>
@@ -124,7 +137,7 @@ export function FileView({ config }: PanelViewProps) {
         )}
 
         <button
-          onClick={() => setPath(parentPath(here))}
+          onClick={() => navigate(parentPath(here))}
           className="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-white/5"
         >
           <span aria-hidden>📁</span> ..
@@ -151,8 +164,10 @@ export function FileView({ config }: PanelViewProps) {
               <button
                 onClick={() =>
                   entry.isDir
-                    ? setPath(joinPath(here, entry.name))
-                    : openInDefaultApp(joinPath(here, entry.name))
+                    ? navigate(joinPath(here, entry.name))
+                    : openInDefaultApp(joinPath(here, entry.name)).catch((e) =>
+                        setError(String(e)),
+                      )
                 }
                 className="flex-1 truncate text-left"
                 title={entry.name}
