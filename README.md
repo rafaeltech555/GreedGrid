@@ -41,7 +41,7 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 | **M3** | Terminal panel — portable-pty PTY backend + xterm.js frontend, output streamed over Tauri Channel, 256 KB scrollback ring buffer, same-run reconnect with scrollback replay, pty killed on panel removal | ✅ Done |
 | **M4** | System Monitor panel — shared background sampler thread (`sysinfo` crate) writes a `SysSnapshot` every 1 s; frontend polls on a configurable interval (default 2 s) and displays CPU%, memory, swap, load average, and uptime with rolling SVG sparklines for CPU% and Mem% | ✅ Done |
 | **M5** | File Browser panel — custom Rust `std::fs` commands (`fs_list`, `fs_delete`, `fs_rename`, `fs_mkdir`), folder-first listing with hidden files, navigate directories + open files with OS default app (`tauri-plugin-opener`), inline rename, new-folder creation, permanent delete guarded by confirm dialog | ✅ Done |
-| **M6** | Workspace persistence — save / load named layouts as JSON | Planned |
+| **M6** | Workspace persistence — named workspaces saved as JSON files in the app config `workspaces/` directory; Save / Load / List / Delete via toolbar Workspace menu; atomic write; layout stored as opaque JSON string (schema owned by frontend) | ✅ Done |
 
 > **Note (M2):** The Web/URL panel shipped as iframe-first. A native-webview fallback (for sites that refuse framing via X-Frame-Options/CSP) is deferred to a later phase — it will be the first Rust-side panel work.
 
@@ -50,6 +50,8 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 > **Note (M4):** Per-core CPU breakdown, network/disk I/O, process list, temperature sensors, history persistence, and alert thresholds are deferred to future milestones.
 
 > **Note (M5):** Delete is permanent (no Trash/recycle-bin). Copy/move/paste, multi-select, drag-and-drop, file preview, and an editable path bar are deferred to future milestones.
+
+> **Note (M6):** Automatic session restore, workspace rename, import/export, thumbnail preview, and cloud sync are deferred to future work.
 
 ---
 
