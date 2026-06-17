@@ -1,6 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { PingInfo } from "./types";
 import type { TermConfig } from "../panels/terminal/types";
+import type { SysSnapshot } from "../panels/sysmon/types";
 
 // Single typed wrapper around Tauri's `invoke`, mirroring the convention used in
 // the other Tauri projects (Keytainer's lib/ipc.ts). Every backend command gets
@@ -51,4 +52,10 @@ export function termResize(instanceId: string, cols: number, rows: number): Prom
 /** Kill the pty and drop its backend session. Called from the panel's onDestroy. */
 export function termClose(instanceId: string): Promise<void> {
   return invoke<void>("term_close", { instanceId });
+}
+
+// --- System Monitor (M4) ----------------------------------------------------
+/** Read the latest host-vitals snapshot from the shared backend sampler. */
+export function sysmonSample(): Promise<SysSnapshot> {
+  return invoke<SysSnapshot>("sysmon_sample");
 }
