@@ -147,7 +147,11 @@ impl PtyRegistry {
                         Ok(n) => {
                             let chunk = buf[..n].to_vec();
                             scrollback.lock().unwrap().push(&chunk);
-                            if let Some(sink) = sink_slot.lock().unwrap().as_ref() {
+                            // Clone the attached sink out and release the lock before
+                            // sending: keeps the (potentially slow) IPC send off the
+                            // lock, and a panicking sink can't poison the mutex.
+                            let attached = sink_slot.lock().unwrap().clone();
+                            if let Some(sink) = attached {
                                 sink.send(chunk);
                             }
                         }
@@ -198,6 +202,8 @@ impl PtyRegistry {
 
     pub fn close(&self, instance_id: &str) -> AppResult<()> {
         let mut map = self.0.lock().unwrap();
+        // Idempotent: closing an unknown/already-closed session is a no-op, since
+        // removal may race with the panel already being gone.
         if let Some(mut session) = map.remove(instance_id) {
             let _ = session.child.kill();
         }
