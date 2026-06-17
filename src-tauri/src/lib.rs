@@ -25,6 +25,10 @@ pub fn run() {
             commands::fs::fs_delete,
             commands::fs::fs_rename,
             commands::fs::fs_mkdir,
+            commands::workspace::ws_save,
+            commands::workspace::ws_load,
+            commands::workspace::ws_list,
+            commands::workspace::ws_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

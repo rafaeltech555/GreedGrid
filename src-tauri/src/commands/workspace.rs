@@ -7,8 +7,10 @@
 use std::fs;
 use std::path::Path;
 
+use tauri::AppHandle;
+
 use crate::error::{AppError, AppResult};
-use crate::paths::atomic_write;
+use crate::paths::{atomic_write, workspaces_dir};
 
 fn validate_ws_name(name: &str) -> AppResult<()> {
     if name.is_empty() || name == "." || name == ".." || name.contains('/') {
@@ -56,6 +58,26 @@ fn delete_in(dir: &Path, name: &str) -> AppResult<()> {
         fs::remove_file(path)?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn ws_save(name: String, layout: String, app: AppHandle) -> AppResult<()> {
+    save_to(&workspaces_dir(&app)?, &name, &layout)
+}
+
+#[tauri::command]
+pub fn ws_load(name: String, app: AppHandle) -> AppResult<String> {
+    load_from(&workspaces_dir(&app)?, &name)
+}
+
+#[tauri::command]
+pub fn ws_list(app: AppHandle) -> AppResult<Vec<String>> {
+    list_in(&workspaces_dir(&app)?)
+}
+
+#[tauri::command]
+pub fn ws_delete(name: String, app: AppHandle) -> AppResult<()> {
+    delete_in(&workspaces_dir(&app)?, &name)
 }
 
 #[cfg(test)]

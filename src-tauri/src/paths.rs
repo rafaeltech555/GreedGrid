@@ -1,7 +1,6 @@
 //! Filesystem locations and safe write helpers. The workspace-persistence
 //! milestone (M6) builds on these; for M0 we only expose the app config dir and
 //! an atomic write so later code never invents its own path logic.
-#![allow(dead_code)] // wired up in M6 (workspace persistence)
 
 use std::path::{Path, PathBuf};
 
