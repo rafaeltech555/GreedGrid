@@ -30,9 +30,14 @@ describe("registerAllPanels", () => {
     expect(getPanelType("sysmon")?.label).toBe("System");
   });
 
+  it("registers the file panel", () => {
+    registerAllPanels();
+    expect(getPanelType("file")?.label).toBe("Files");
+  });
+
   it("registers all built-in panels exactly once", () => {
     registerAllPanels();
     registerAllPanels(); // idempotent
-    expect(allPanelTypes()).toHaveLength(3);
+    expect(allPanelTypes()).toHaveLength(4);
   });
 });
