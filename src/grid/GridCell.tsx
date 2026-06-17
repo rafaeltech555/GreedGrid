@@ -20,6 +20,7 @@ export function GridCell({ cell }: GridCellProps) {
   const cells = useLayoutStore((s) => s.layout.cells);
   const toggleSelect = useLayoutStore((s) => s.toggleSelect);
   const selectedIds = useLayoutStore((s) => s.selectedIds);
+  const selectMode = useLayoutStore((s) => s.selectMode);
   const pickerCellId = usePanelUiStore((s) => s.pickerCellId);
   const openPicker = usePanelUiStore((s) => s.openPicker);
   const closePicker = usePanelUiStore((s) => s.closePicker);
@@ -55,27 +56,24 @@ export function GridCell({ cell }: GridCellProps) {
         gridColumn: `${cell.col} / span ${cell.colSpan}`,
         gridRow: `${cell.row} / span ${cell.rowSpan}`,
       }}
+      onClickCapture={(e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.stopPropagation();
+          e.preventDefault();
+          toggleSelect(cell.id);
+        }
+      }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
       className={`group relative overflow-hidden rounded-md border bg-white/[0.03] ${
         isSelected
           ? "border-emerald-400 ring-2 ring-inset ring-emerald-400"
-          : "border-white/10"
+          : selectMode
+            ? "border-white/10 ring-1 ring-inset ring-white/20"
+            : "border-white/10"
       }`}
       data-testid={`cell-${cell.id}`}
     >
-      <button
-        aria-label="Select cell"
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleSelect(cell.id);
-        }}
-        className={`absolute left-1 top-1 z-10 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white ${
-          isSelected ? "flex" : "hidden group-hover:flex group-focus-within:flex"
-        }`}
-      >
-        ◉
-      </button>
       {cell.panel && panelDef ? (
         <>
           <panelDef.View instanceId={cell.panel.instanceId} config={cell.panel.config} />
@@ -105,6 +103,16 @@ export function GridCell({ cell }: GridCellProps) {
         >
           +
         </button>
+      )}
+      {selectMode && (
+        <button
+          aria-label="Select cell"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelect(cell.id);
+          }}
+          className="absolute inset-0 z-20 cursor-pointer"
+        />
       )}
     </div>
   );

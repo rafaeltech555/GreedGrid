@@ -23,7 +23,7 @@ const webDef: PanelTypeDef = {
 beforeEach(() => {
   __clearRegistry();
   registerPanel(webDef);
-  useLayoutStore.setState({ layout: makePreset(4), selectedIds: [] });
+  useLayoutStore.setState({ layout: makePreset(4), selectedIds: [], selectMode: false });
   usePanelUiStore.setState({ pickerCellId: null, modal: null });
 });
 afterEach(() => __clearRegistry());
@@ -77,50 +77,57 @@ describe("GridCell", () => {
     });
   });
 
-  describe("select handle", () => {
-    it("empty cell: clicking select handle toggles selectedIds", async () => {
+  describe("selection", () => {
+    it("no ◉ handle button is rendered (handle removed)", () => {
+      render(<GridCell cell={cellOf(cellId(1, 1))} />);
+      expect(screen.queryByRole("button", { name: "Select cell" })).toBeNull();
+    });
+
+    it("Ctrl+click on the cell toggles selectedIds", () => {
       const id = cellId(1, 1);
       render(<GridCell cell={cellOf(id)} />);
-      const handle = screen.getByRole("button", { name: "Select cell" });
-      await userEvent.click(handle);
+      const cellEl = screen.getByTestId(`cell-${id}`);
+      fireEvent.click(cellEl, { ctrlKey: true });
       expect(useLayoutStore.getState().selectedIds).toContain(id);
-      await userEvent.click(handle);
+      fireEvent.click(cellEl, { ctrlKey: true });
       expect(useLayoutStore.getState().selectedIds).not.toContain(id);
     });
 
-    it("panel cell: clicking select handle toggles selectedIds", async () => {
+    it("Meta(Cmd)+click on the cell toggles selectedIds", () => {
       const id = cellId(1, 1);
-      useLayoutStore.getState().setPanel(id, "web", { url: "https://x" });
       render(<GridCell cell={cellOf(id)} />);
-      const handle = screen.getByRole("button", { name: "Select cell" });
-      await userEvent.click(handle);
+      fireEvent.click(screen.getByTestId(`cell-${id}`), { metaKey: true });
       expect(useLayoutStore.getState().selectedIds).toContain(id);
     });
 
-    it("clicking select handle does not open the picker", async () => {
+    it("Ctrl+click does NOT open the picker", () => {
       const id = cellId(1, 1);
       render(<GridCell cell={cellOf(id)} />);
-      await userEvent.click(screen.getByRole("button", { name: "Select cell" }));
+      fireEvent.click(screen.getByTestId(`cell-${id}`), { ctrlKey: true });
       expect(usePanelUiStore.getState().pickerCellId).toBeNull();
     });
 
-    it("clicking select handle on panel cell does not open any modal", async () => {
+    it("select mode: overlay click toggles selectedIds (even on a panel cell)", async () => {
       const id = cellId(1, 1);
       useLayoutStore.getState().setPanel(id, "web", { url: "https://x" });
+      useLayoutStore.setState({ selectMode: true });
       render(<GridCell cell={cellOf(id)} />);
       await userEvent.click(screen.getByRole("button", { name: "Select cell" }));
-      expect(usePanelUiStore.getState().modal).toBeNull();
+      expect(useLayoutStore.getState().selectedIds).toContain(id);
     });
 
-    it("selected cell outer div has ring-2 ring-emerald-400 class", async () => {
+    it("select mode overlay is absent when selectMode is false", () => {
+      useLayoutStore.setState({ selectMode: false });
+      render(<GridCell cell={cellOf(cellId(1, 1))} />);
+      expect(screen.queryByRole("button", { name: "Select cell" })).toBeNull();
+    });
+
+    it("selected cell outer div has ring-2 ring-emerald-400 class", () => {
       const id = cellId(1, 1);
       render(<GridCell cell={cellOf(id)} />);
       const cellEl = screen.getByTestId(`cell-${id}`);
       expect(cellEl.className).not.toMatch(/ring-2/);
-      await userEvent.click(screen.getByRole("button", { name: "Select cell" }));
-      // The click triggers a store update; the component subscribes to selectedIds
-      // via the Zustand selector and re-renders reactively. The already-held
-      // element reference reflects the updated className after re-render.
+      fireEvent.click(cellEl, { ctrlKey: true });
       expect(cellEl.className).toMatch(/ring-2/);
       expect(cellEl.className).toMatch(/ring-inset/);
       expect(cellEl.className).toMatch(/ring-emerald-400/);
