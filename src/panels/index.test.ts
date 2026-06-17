@@ -25,9 +25,14 @@ describe("registerAllPanels", () => {
     expect(getPanelType("terminal")?.label).toBe("Terminal");
   });
 
-  it("registers both built-in panels exactly once", () => {
+  it("registers the sysmon panel", () => {
+    registerAllPanels();
+    expect(getPanelType("sysmon")?.label).toBe("System");
+  });
+
+  it("registers all built-in panels exactly once", () => {
     registerAllPanels();
     registerAllPanels(); // idempotent
-    expect(allPanelTypes()).toHaveLength(2);
+    expect(allPanelTypes()).toHaveLength(3);
   });
 });
