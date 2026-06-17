@@ -6,6 +6,10 @@ interface SplitterProps {
   pos: number;
   /** Hit-area thickness in px (a bit wider than the visual gap for easy grabbing). */
   hit: number;
+  /** Cross-axis 起始 px(col→top;row→left)。 */
+  crossStart: number;
+  /** Cross-axis 長度 px(col→height;row→width)。 */
+  crossLength: number;
   onDragStart: () => void;
   /** Called on every move with the signed px distance from the drag origin. */
   onResize: (deltaPx: number) => void;
@@ -20,6 +24,8 @@ export function Splitter({
   orientation,
   pos,
   hit,
+  crossStart,
+  crossLength,
   onDragStart,
   onResize,
   onDragEnd,
@@ -48,8 +54,8 @@ export function Splitter({
   }
 
   const style: React.CSSProperties = isCol
-    ? { left: pos - hit / 2, top: 0, width: hit, height: "100%" }
-    : { top: pos - hit / 2, left: 0, height: hit, width: "100%" };
+    ? { left: pos - hit / 2, top: crossStart, width: hit, height: crossLength }
+    : { top: pos - hit / 2, left: crossStart, height: hit, width: crossLength };
 
   return (
     <div
