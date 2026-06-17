@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod paths;
 mod pty;
+mod sysmon;
 
 use pty::PtyRegistry;
 
