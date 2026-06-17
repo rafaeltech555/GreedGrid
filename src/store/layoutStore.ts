@@ -12,6 +12,7 @@ interface LayoutState {
   selectedIds: string[];
 
   applyPreset: (count: PresetCount) => void;
+  loadLayout: (layout: GridLayout) => void;
   toggleSelect: (id: string) => void;
   clearSelection: () => void;
   mergeSelected: () => void;
@@ -56,6 +57,12 @@ export const useLayoutStore = create<LayoutState>((set) => ({
       const after = makePreset(count);
       fireDestroyed(s.layout, after);
       return { layout: after, selectedIds: [] };
+    }),
+
+  loadLayout: (layout) =>
+    set((s) => {
+      fireDestroyed(s.layout, layout);
+      return { layout, selectedIds: [] };
     }),
 
   toggleSelect: (id) =>

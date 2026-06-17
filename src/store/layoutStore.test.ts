@@ -78,6 +78,12 @@ describe("layoutStore", () => {
     s().setCols([2, 1]);
     expect(s().layout.grid.cols).toEqual([2, 1]);
   });
+
+  it("the layout document survives a JSON round-trip (pure data)", () => {
+    s().applyPreset(4);
+    const layout = s().layout;
+    expect(JSON.parse(JSON.stringify(layout))).toEqual(layout);
+  });
 });
 
 describe("panel actions", () => {
@@ -145,5 +151,15 @@ describe("panel actions", () => {
     // top-left panel (id-keep) survives in the merged cell; id-absorbed is destroyed
     expect(destroyed).toContain("id-absorbed");
     expect(destroyed).not.toContain("id-keep");
+  });
+
+  it("loadLayout replaces the layout, clears selection, and destroys dropped panels", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, () => "id-old");
+    s().toggleSelect(cellId(2, 1));
+    destroyed.length = 0; // ignore placement destroys
+    s().loadLayout(makePreset(6)); // fresh layout has no panels → id-old is dropped
+    expect(s().layout.cells).toHaveLength(6);
+    expect(s().selectedIds).toEqual([]);
+    expect(destroyed).toEqual(["id-old"]);
   });
 });
