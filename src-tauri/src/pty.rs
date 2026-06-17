@@ -78,7 +78,7 @@ struct PtySession {
 
 /// Registry of live PTYs keyed by panel `instanceId`. Lives in Tauri app state.
 #[derive(Default)]
-pub struct PtyRegistry(pub Mutex<HashMap<String, PtySession>>);
+pub struct PtyRegistry(Mutex<HashMap<String, PtySession>>);
 
 impl PtyRegistry {
     /// Spawn a new session, or — if one already exists for `instance_id` —
@@ -97,6 +97,14 @@ impl PtyRegistry {
                 sink.send(snapshot);
             }
             *session.sink.lock().unwrap() = Some(sink);
+            // Apply the reconnecting client's viewport so the shell isn't stuck at
+            // the previous size until the next resize event.
+            let _ = session.master.resize(PtySize {
+                rows: opts.rows,
+                cols: opts.cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            });
             return Ok(());
         }
 
@@ -145,14 +153,13 @@ impl PtyRegistry {
                     match reader.read(&mut buf) {
                         Ok(0) | Err(_) => break,
                         Ok(n) => {
-                            let chunk = buf[..n].to_vec();
-                            scrollback.lock().unwrap().push(&chunk);
+                            scrollback.lock().unwrap().push(&buf[..n]);
                             // Clone the attached sink out and release the lock before
                             // sending: keeps the (potentially slow) IPC send off the
                             // lock, and a panicking sink can't poison the mutex.
                             let attached = sink_slot.lock().unwrap().clone();
                             if let Some(sink) = attached {
-                                sink.send(chunk);
+                                sink.send(buf[..n].to_vec());
                             }
                         }
                     }
@@ -206,6 +213,7 @@ impl PtyRegistry {
         // removal may race with the panel already being gone.
         if let Some(mut session) = map.remove(instance_id) {
             let _ = session.child.kill();
+            let _ = session.child.wait(); // reap so we don't leak a zombie process
         }
         Ok(())
     }

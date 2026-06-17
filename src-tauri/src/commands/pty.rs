@@ -39,8 +39,10 @@ pub async fn term_open(
     let opts = OpenOpts {
         shell: shell.filter(|s| !s.is_empty()).unwrap_or_else(default_shell),
         cwd: cwd.filter(|s| !s.is_empty()),
-        cols,
-        rows,
+        // Guard against a not-yet-measured frontend sending 0 — a degenerate PTY
+        // size breaks ncurses apps (vim/htop).
+        cols: cols.max(1),
+        rows: rows.max(1),
     };
     state.open(&instance_id, opts, Arc::new(ChannelSink(channel)))
 }
