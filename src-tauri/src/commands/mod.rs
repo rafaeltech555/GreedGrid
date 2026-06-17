@@ -3,6 +3,7 @@
 //! health check so the frontend can confirm it reached its own backend.
 //! M3 adds the terminal commands.
 
+pub mod fs;
 pub mod pty;
 pub mod sysmon;
 
