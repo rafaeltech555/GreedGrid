@@ -36,7 +36,7 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 | Milestone | Description | Status |
 |---|---|---|
 | **M0** | Scaffold — Tauri v2 + React 19 + typed IPC, `ping` health-check, 9-cell hello-grid | ✅ Done |
-| **M1** | Grid engine — preset layouts (4/6/8/9/12), draggable splitters to resize tracks, merge/split adjacent cells (cells are selected via the per-cell ◉ handle; switching a preset remaps panels by position and only prompts when a panel cannot fit, preserving running Terminal/sysmon/Web panels) | ✅ Done |
+| **M1** | Grid engine — preset layouts (4/6/8/9/12), draggable splitters to resize tracks, merge/split adjacent cells (cells are selected via a **Select** mode toggle button in the Toolbar — overlays an intercept layer so any panel including Web/iframe can be clicked — or by Ctrl/Cmd+left-click for non-iframe cells; switching a preset remaps panels by position and only prompts when a panel cannot fit, preserving running Terminal/sysmon/Web panels) | ✅ Done |
 | **M2** | Panel host + pluggable panel-type interface (`PanelTypeDef` registry), empty-cell picker + palette drag-and-drop placement, unified config modal, Web/URL panel (iframe) | ✅ Done |
 | **M3** | Terminal panel — portable-pty PTY backend + xterm.js frontend, output streamed over Tauri Channel, 256 KB scrollback ring buffer, same-run reconnect with scrollback replay, pty killed on panel removal | ✅ Done |
 | **M4** | System Monitor panel — shared background sampler thread (`sysinfo` crate) writes a `SysSnapshot` every 1 s; frontend polls on a configurable interval (default 2 s) and displays CPU%, memory, swap, load average, and uptime with rolling SVG sparklines for CPU% and Mem% | ✅ Done |
@@ -57,7 +57,8 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 
 | Addition | Description |
 |---|---|
-| **Cell-select handle** | Each grid cell shows a ◉ "Select cell" handle on hover (stays visible while selected). Clicking it toggles selection (emerald inset-ring highlight), enabling Merge/Split — fixing a silent regression where those toolbar buttons were always disabled post-M2. |
+| **Cell selection** | Two ways to select cells for Merge/Split: (1) **Select mode** — a Toolbar toggle button overlays a transparent intercept layer on every cell so clicks are captured before any inner content, enabling selection of any panel type including Web/iframe; (2) **Ctrl/Cmd+left-click** anywhere on a cell without entering Select mode (note: does not work on Web/iframe cells — the iframe swallows the event; use Select mode instead). Esc or a successful merge/split exits Select mode automatically. Fixes the post-M2 regression where Merge/Split were always disabled. |
+| **Merged-cell splitter fix** | After merging cells, splitter dividers no longer bleed through merged regions. `boundarySegments` now slices each border segment by the cells it crosses, so merged cells only see the splitters on their actual boundaries. |
 | **Preset-switch panel remapping** | Switching the cell-count preset now remaps existing panels to the nearest same-(col, row) cell in the new layout instead of discarding all of them. Only panels that genuinely fall outside the new grid bounds trigger a confirm dialog; the rest (Terminal PTY, System Monitor, Web iframe) are preserved and keep running. |
 | **App icon** | Custom icon generated via `scripts/make_icon.py` (Pillow): dark rounded square, 3 × 3 grid lines, one emerald-400 accent cell. The full icon set (`src-tauri/icons/*`) is regenerated with `pnpm tauri icon`. |
 | **UI font — Space Grotesk** | Self-hosted via `@fontsource/space-grotesk` (weights 400/500/600/700). Terminal panels continue to use a monospace font unchanged. |

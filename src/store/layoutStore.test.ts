@@ -94,6 +94,14 @@ describe("layoutStore", () => {
     expect(s().selectedIds).toEqual([]);
   });
 
+  it("mergeSelected on an invalid selection does not exit select mode", () => {
+    s().setSelectMode(true);
+    s().toggleSelect(cellId(1, 1)); // 只選 1 格 → 不可 merge
+    s().mergeSelected();
+    expect(s().selectMode).toBe(true);
+    expect(s().selectedIds).toEqual([cellId(1, 1)]);
+  });
+
   it("does not merge a non-rectangular selection", () => {
     [cellId(1, 1), cellId(2, 1), cellId(1, 2)].forEach((id) =>
       s().toggleSelect(id),

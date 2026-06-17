@@ -56,6 +56,8 @@ export function GridCell({ cell }: GridCellProps) {
         gridColumn: `${cell.col} / span ${cell.colSpan}`,
         gridRow: `${cell.row} / span ${cell.rowSpan}`,
       }}
+      // Capture phase so Ctrl/Cmd+click selects the cell before any inner button
+      // (e.g. the empty-cell "+") fires its own onClick.
       onClickCapture={(e) => {
         if (e.ctrlKey || e.metaKey) {
           e.stopPropagation();
