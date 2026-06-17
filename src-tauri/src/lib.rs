@@ -21,6 +21,10 @@ pub fn run() {
             commands::pty::term_resize,
             commands::pty::term_close,
             commands::sysmon::sysmon_sample,
+            commands::fs::fs_list,
+            commands::fs::fs_delete,
+            commands::fs::fs_rename,
+            commands::fs::fs_mkdir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

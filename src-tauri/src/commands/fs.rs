@@ -59,6 +59,45 @@ pub fn fs_list(path: Option<String>) -> AppResult<ListResult> {
     })
 }
 
+fn validate_name(name: &str) -> AppResult<()> {
+    if name.is_empty() || name.contains('/') {
+        return Err(AppError::Other(format!("invalid name: {name:?}")));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn fs_delete(path: String) -> AppResult<()> {
+    let p = Path::new(&path);
+    // symlink_metadata: don't follow links — deleting a symlink removes the link,
+    // not its target.
+    let meta = fs::symlink_metadata(p)?;
+    if meta.file_type().is_dir() {
+        fs::remove_dir_all(p)?; // permanent, recursive
+    } else {
+        fs::remove_file(p)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn fs_rename(path: String, new_name: String) -> AppResult<()> {
+    validate_name(&new_name)?;
+    let p = Path::new(&path);
+    let parent = p
+        .parent()
+        .ok_or_else(|| AppError::Other("path has no parent".into()))?;
+    fs::rename(p, parent.join(&new_name))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn fs_mkdir(parent: String, name: String) -> AppResult<()> {
+    validate_name(&name)?;
+    fs::create_dir(Path::new(&parent).join(&name))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,6 +129,40 @@ mod tests {
         assert_eq!(res.entries[1].size, 2);
         assert_eq!(res.entries[2].name, "b.txt");
         assert_eq!(res.entries[2].size, 5);
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn fs_mkdir_rename_delete_lifecycle() {
+        let dir = temp_subdir("life");
+        let base = dir.to_string_lossy().to_string();
+
+        fs_mkdir(base.clone(), "foo".into()).unwrap();
+        assert!(dir.join("foo").is_dir());
+
+        fs_rename(dir.join("foo").to_string_lossy().to_string(), "bar".into()).unwrap();
+        assert!(dir.join("bar").is_dir());
+        assert!(!dir.join("foo").exists());
+
+        // non-empty directory deletes recursively
+        fs::write(dir.join("bar").join("x.txt"), b"x").unwrap();
+        fs_delete(dir.join("bar").to_string_lossy().to_string()).unwrap();
+        assert!(!dir.join("bar").exists());
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rename_and_mkdir_reject_bad_names() {
+        let dir = temp_subdir("bad");
+        let base = dir.to_string_lossy().to_string();
+
+        assert!(fs_mkdir(base.clone(), "".into()).is_err());
+        assert!(fs_mkdir(base.clone(), "a/b".into()).is_err());
+
+        fs_mkdir(base.clone(), "ok".into()).unwrap();
+        assert!(fs_rename(dir.join("ok").to_string_lossy().to_string(), "a/b".into()).is_err());
 
         fs::remove_dir_all(&dir).unwrap();
     }
