@@ -23,6 +23,13 @@ impl ScrollbackBuffer {
     }
 
     pub fn push(&mut self, data: &[u8]) {
+        // If a single chunk exceeds capacity, only the trailing `cap` bytes can
+        // survive — keep just those and skip the per-byte drain entirely.
+        if data.len() >= self.cap {
+            self.buf.clear();
+            self.buf.extend(data[data.len() - self.cap..].iter().copied());
+            return;
+        }
         self.buf.extend(data.iter().copied());
         while self.buf.len() > self.cap {
             self.buf.pop_front();
@@ -51,5 +58,12 @@ mod tests {
         sb.push(b"abc");
         sb.push(b"de"); // total "abcde" (5) > cap 4 → drop leading "a"
         assert_eq!(sb.snapshot(), b"bcde");
+    }
+
+    #[test]
+    fn scrollback_handles_chunk_larger_than_capacity() {
+        let mut sb = ScrollbackBuffer::new(3);
+        sb.push(b"abcdef"); // 6 bytes into cap 3 → keep trailing "def"
+        assert_eq!(sb.snapshot(), b"def");
     }
 }
