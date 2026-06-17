@@ -5,6 +5,7 @@ mod pty;
 mod sysmon;
 
 use pty::PtyRegistry;
+use sysmon::Sampler;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,12 +13,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(PtyRegistry::default())
+        .manage(Sampler::start())
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::pty::term_open,
             commands::pty::term_write,
             commands::pty::term_resize,
             commands::pty::term_close,
+            commands::sysmon::sysmon_sample,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

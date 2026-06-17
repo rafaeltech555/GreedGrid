@@ -4,6 +4,7 @@
 //! M3 adds the terminal commands.
 
 pub mod pty;
+pub mod sysmon;
 
 use serde::Serialize;
 
