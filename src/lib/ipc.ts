@@ -88,3 +88,24 @@ export function fsMkdir(parent: string, name: string): Promise<void> {
 export function openInDefaultApp(path: string): Promise<void> {
   return openPath(path);
 }
+
+// --- Workspace persistence (M6) ---------------------------------------------
+/** Save the current layout JSON under `name` (overwrites an existing one). */
+export function wsSave(name: string, layout: string): Promise<void> {
+  return invoke<void>("ws_save", { name, layout });
+}
+
+/** Load a saved workspace's layout JSON string. */
+export function wsLoad(name: string): Promise<string> {
+  return invoke<string>("ws_load", { name });
+}
+
+/** List saved workspace names (sorted). */
+export function wsList(): Promise<string[]> {
+  return invoke<string[]>("ws_list");
+}
+
+/** Delete a saved workspace. */
+export function wsDelete(name: string): Promise<void> {
+  return invoke<void>("ws_delete", { name });
+}

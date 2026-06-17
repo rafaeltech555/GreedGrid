@@ -4,6 +4,7 @@ import {
   useLayoutStore,
 } from "../store/layoutStore";
 import { PRESET_COUNTS } from "../grid/presets";
+import { WorkspaceMenu } from "./WorkspaceMenu";
 
 /**
  * Top toolbar: pick a preset grid, and merge/split the current selection.
@@ -58,6 +59,8 @@ export function Toolbar() {
           {selectedCount} selected · clear
         </button>
       )}
+      <div className="mx-1 h-4 w-px bg-white/10" />
+      <WorkspaceMenu />
     </div>
   );
 }
