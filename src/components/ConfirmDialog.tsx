@@ -6,8 +6,8 @@ interface ConfirmDialogProps {
 }
 
 /** Small controlled confirm dialog (mirrors ConfigModal's a11y conventions).
- *  Used for the irreversible permanent-delete confirmation; the confirm button
- *  is styled as a destructive (red) action. */
+ *  Shared by destructive actions — file delete and workspace delete. The confirm
+ *  button is styled as a destructive (red) action. */
 export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <div

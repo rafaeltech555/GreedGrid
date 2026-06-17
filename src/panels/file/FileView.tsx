@@ -10,7 +10,7 @@ import {
   openInDefaultApp,
 } from "../../lib/ipc";
 import { formatSize, isValidName, joinPath, parentPath } from "./path";
-import { ConfirmDialog } from "./ConfirmDialog";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 
 /** File Browser view: navigates the filesystem, opens files in the OS default
  *  app, and supports new-folder / rename / permanent-delete. Stateless backend
