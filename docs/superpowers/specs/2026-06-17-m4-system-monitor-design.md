@@ -1,4 +1,4 @@
-# GreedGrid M4 — System Monitor Panel Design
+# GreedGrid M4 — System Monitor Panel 設計
 
 _Date: 2026-06-17_
 
@@ -6,26 +6,26 @@ _Date: 2026-06-17_
 
 ## Overview / Goals
 
-**M4** delivers the **System Monitor panel** (`PanelKind` = `"sysmon"`, already reserved in the type union since M2): a compact, always-on readout of host vitals rendered inside a grid cell. It is the first **read-only, polled** panel — proving the panel architecture works for a metrics source without the streaming/lifecycle weight of the Terminal (M3).
+**M4** 交付 **System Monitor panel**（`PanelKind` = `"sysmon"`，自 M2 起已保留於型別聯集中）：在 grid cell 內呈現一組緊湊、常駐的主機資源指標讀值。這是第一個**唯讀、輪詢式** panel——用於驗證 panel 架構在無串流/生命週期重量的指標資料來源上同樣運作正常（相對於 Terminal M3）。
 
-**Scope (essentials only):**
-- Overall CPU utilisation (%)
-- Memory used / total
-- Swap used / total
-- Load average (1 / 5 / 15 min)
+**範圍（僅核心功能）：**
+- 整體 CPU 使用率（%）
+- 記憶體已用 / 總量
+- Swap 已用 / 總量
+- Load average（1 / 5 / 15 分鐘）
 - Uptime
 
-**Presentation:** a rolling **SVG sparkline** of recent history for **CPU%** and **Mem%**, with current numbers + a bar for each metric, and a numeric row for swap / load / uptime. Default refresh interval **2 s** (configurable).
+**呈現方式：** 針對 **CPU%** 與 **Mem%** 顯示近期歷史的滾動式 **SVG sparkline**，搭配各指標的當前數值與長條，以及一列 swap / load / uptime 的數字資訊。預設更新間隔為 **2 秒**（可設定）。
 
-**Architecture decision (locked): Approach A — shared backend sampler + frontend poll.** One background sampler thread owns a single `sysinfo::System`, refreshes it on a fixed cadence into a snapshot behind a `Mutex`. Frontend panels poll a cheap `sysmon_sample` command that only *reads* the latest snapshot. This keeps CPU% deltas consistent (fixed sampler cadence, not dependent on poll timing), makes the backend **O(1) regardless of panel count**, and means **no per-instance backend state, no Channel, no attach/detach lifecycle**.
+**架構決策（已鎖定）：Approach A — 共享後端 sampler + 前端輪詢。** 一條背景 sampler 執行緒持有單一 `sysinfo::System`，以固定節拍更新資料至 `Mutex` 後的 snapshot。前端 panel 以輪詢方式呼叫輕量 `sysmon_sample` 指令，僅*讀取*最新 snapshot。此設計確保 CPU% 差分一致（固定 sampler 節拍，不受輪詢時機影響），使後端**無論 panel 數量均為 O(1)**，且**不需要每實例後端狀態、不需要 Channel、不需要 attach/detach 生命週期**。
 
-**Non-goals (YAGNI — explicitly excluded):** per-core CPU; network / disk I/O rates; process list; temperatures / fans / battery; GPU; history persistence across app runs; alert thresholds; the native-webview Web fallback (unrelated, still deferred). None of these are designed here; adding any later is a new milestone.
+**Non-goals（YAGNI — 明確排除）：** 逐核心 CPU、網路 / 磁碟 I/O 速率、行程清單、溫度 / 風扇 / 電池、GPU、跨應用程式執行的歷史持久化、警報閾值、native-webview Web 備援（無關，仍延後處理）。以上項目均不在本設計範圍；日後新增任何項目屬新里程碑。
 
 ---
 
-## §1 Data Model
+## §1 資料模型 (Data Model)
 
-A single serialisable snapshot crosses the IPC boundary. Backend (`serde::Serialize`) and frontend (TS interface) mirror it.
+跨越 IPC 邊界的是一個可序列化的 snapshot。後端（`serde::Serialize`）與前端（TS interface）的欄位互相對應。
 
 ```rust
 // src-tauri/src/sysmon.rs
@@ -55,9 +55,9 @@ export interface SysSnapshot {
 }
 ```
 
-`#[serde(rename_all = "camelCase")]` makes `mem_used` arrive as `memUsed`, matching the TS shape with no manual mapping.
+`#[serde(rename_all = "camelCase")]` 使 `mem_used` 抵達前端時已轉為 `memUsed`，與 TS 型別完全對應，無須手動映射。
 
-The panel's per-instance `PanelConfig.config` holds only the refresh interval:
+每個 panel 實例的 `PanelConfig.config` 僅保存更新間隔：
 
 ```ts
 // src/panels/sysmon/types.ts
@@ -71,9 +71,9 @@ export function sysmonReady(_config: Record<string, unknown>): boolean {
 
 ---
 
-## §2 Backend — Shared Sampler
+## §2 後端 — 共享 Sampler (Backend — Shared Sampler)
 
-New file `src-tauri/src/sysmon.rs`.
+新增檔案 `src-tauri/src/sysmon.rs`。
 
 ### Sampler
 
@@ -81,24 +81,24 @@ New file `src-tauri/src/sysmon.rs`.
 pub struct Sampler(pub Arc<Mutex<SysSnapshot>>);
 ```
 
-- A constructor `Sampler::start()` that:
-  1. Builds a `sysinfo::System`, does an initial `refresh_cpu_usage()` + `refresh_memory()`, sleeps `MINIMUM_CPU_UPDATE_INTERVAL` (~200 ms), refreshes again so the first CPU% is meaningful, and seeds the snapshot.
-  2. Spawns a detached background thread that loops: `refresh_cpu_usage()` + `refresh_memory()`, recompute a `SysSnapshot`, write it into the `Mutex`, then `sleep(SAMPLE_INTERVAL)`.
-  3. Returns the `Sampler` (holding the shared `Arc<Mutex<SysSnapshot>>`).
-- `SAMPLE_INTERVAL` = **1 s** (constant). This is the cadence the CPU% delta is measured over and is independent of the frontend poll interval. (Frontend polling at 2 s simply reads whatever the latest 1 s-window snapshot is.)
-- `fn snapshot(&self) -> SysSnapshot` — clone the current snapshot under the lock.
+- 建構子 `Sampler::start()` 的行為：
+  1. 建立一個 `sysinfo::System`，執行初始 `refresh_cpu_usage()` + `refresh_memory()`，休眠 `MINIMUM_CPU_UPDATE_INTERVAL`（約 200 ms），再次更新，使第一筆 CPU% 具有實際意義，並寫入初始 snapshot。
+  2. 產生一條分離式（detached）背景執行緒，迴圈執行：`refresh_cpu_usage()` + `refresh_memory()`，重算 `SysSnapshot`，寫入 `Mutex`，再 `sleep(SAMPLE_INTERVAL)`。
+  3. 回傳 `Sampler`（持有共享的 `Arc<Mutex<SysSnapshot>>`）。
+- `SAMPLE_INTERVAL` = **1 s**（常數）。此為 CPU% 差分的測量節拍，與前端輪詢間隔無關。（前端以 2 s 輪詢時，僅讀取最新的 1 s 視窗 snapshot。）
+- `fn snapshot(&self) -> SysSnapshot` — 在鎖保護下 clone 當前 snapshot。
 
-**sysinfo specifics** (crate `sysinfo = "0.33"`):
-- Global CPU: `sys.global_cpu_usage() -> f32` after `refresh_cpu_usage()`.
-- Memory (bytes in 0.30+): `sys.used_memory()`, `sys.total_memory()`, `sys.used_swap()`, `sys.total_swap()` after `refresh_memory()`.
-- Load average: `System::load_average()` (associated fn) → `LoadAvg { one, five, fifteen }`.
-- Uptime: `System::uptime()` (associated fn) → `u64` seconds.
+**sysinfo 細節**（crate `sysinfo = "0.33"`）：
+- 整體 CPU：`refresh_cpu_usage()` 後呼叫 `sys.global_cpu_usage() -> f32`。
+- 記憶體（0.30+ 版本以 bytes 為單位）：`refresh_memory()` 後呼叫 `sys.used_memory()`、`sys.total_memory()`、`sys.used_swap()`、`sys.total_swap()`。
+- Load average：`System::load_average()`（關聯函式）→ `LoadAvg { one, five, fifteen }`。
+- Uptime：`System::uptime()`（關聯函式）→ `u64` 秒。
 
-The sampler thread is **started once at app startup** (negligible cost: a 1 s cpu+mem refresh) and lives for the app's lifetime — simpler than lazy start/stop, and correct when zero or many panels exist. (Rejected alternative: lazy start on first panel + refcounted stop — more moving parts for no real benefit on a desktop app.)
+Sampler 執行緒**於應用程式啟動時建立一次**（成本極低：1 s 的 cpu+mem 更新），並在應用程式整個生命週期存活——這比延遲啟動 / 停止更簡單，且無論 panel 數量為零或多個均能正確運作。（已拒絕的替代方案：首次 panel 建立時懶惰啟動 + 參考計數停止——桌面應用程式上無實質效益，反而增加更多複雜度。）
 
 ### Tauri command
 
-`src-tauri/src/commands/sysmon.rs`:
+`src-tauri/src/commands/sysmon.rs`：
 
 ```rust
 #[tauri::command]
@@ -107,23 +107,23 @@ pub fn sysmon_sample(state: State<'_, Sampler>) -> SysSnapshot {
 }
 ```
 
-Synchronous and cheap (a mutex read + clone) — no async needed. Registered in `commands/mod.rs` as `pub mod sysmon;`.
+同步且輕量（mutex 讀取 + clone）——無需 async。在 `commands/mod.rs` 中以 `pub mod sysmon;` 方式註冊。
 
-### Wiring (`lib.rs`)
+### 接線 (`lib.rs`)
 
 - `mod sysmon;`
 - `.manage(Sampler::start())`
-- add `commands::sysmon::sysmon_sample` to `generate_handler!`.
+- 將 `commands::sysmon::sysmon_sample` 加入 `generate_handler!`。
 
-No capability change (app-defined commands need no ACL entry, as established in M3).
+無需變更 capability（應用程式自訂指令不需要 ACL 項目，已於 M3 建立此慣例）。
 
 ---
 
-## §3 Frontend — View, Sparkline, Formatting
+## §3 前端 — View、Sparkline、格式化 (Frontend — View, Sparkline, Formatting)
 
-New directory `src/panels/sysmon/`.
+新增目錄 `src/panels/sysmon/`。
 
-### IPC wrapper (`src/lib/ipc.ts`)
+### IPC wrapper（`src/lib/ipc.ts`）
 
 ```ts
 export function sysmonSample(): Promise<SysSnapshot> {
@@ -131,70 +131,70 @@ export function sysmonSample(): Promise<SysSnapshot> {
 }
 ```
 
-### Pure helpers (`src/panels/sysmon/format.ts`) — unit-tested
+### 純函式輔助工具（`src/panels/sysmon/format.ts`）— 含單元測試
 
-- `formatBytes(n: number): string` → e.g. `6.2G`, `512M` (binary units, 1 decimal for G).
-- `formatMemPair(used, total): string` → `"6.2/16G"`.
-- `formatUptime(secs: number): string` → `"3d 04:12"` (days + `HH:MM`; omit the `Nd ` prefix when < 1 day).
-- `pushHistory(buf: number[], value: number, cap: number): number[]` → returns a new array with `value` appended, oldest dropped past `cap` (cap = 60). Pure, so the rolling buffer is testable without React.
+- `formatBytes(n: number): string` → 例如 `6.2G`、`512M`（二進位單位，G 保留 1 位小數）。
+- `formatMemPair(used, total): string` → `"6.2/16G"`。
+- `formatUptime(secs: number): string` → `"3d 04:12"`（天數 + `HH:MM`；不足 1 天時省略 `Nd ` 前綴）。
+- `pushHistory(buf: number[], value: number, cap: number): number[]` → 回傳在末尾附加 `value`、超過 `cap` 則丟棄最舊元素的新陣列（cap = 60）。純函式設計使滾動 buffer 可在不需要 React 的情況下進行測試。
 
-### Sparkline (`src/panels/sysmon/Sparkline.tsx`) — SVG, unit-tested
+### Sparkline（`src/panels/sysmon/Sparkline.tsx`）— SVG，含單元測試
 
 ```ts
 export function Sparkline(props: { data: number[]; max: number; className?: string }): ReactNode
 ```
 
-- Renders an `<svg>` with `viewBox="0 0 100 100"` (`preserveAspectRatio="none"`, fills its box) containing one `<polyline>`.
-- Maps `data` to points: x evenly spaced across `0..100` by index, y = `100 - clamp(value / max, 0, 1) * 100` (so higher value = higher line).
-- Edge cases: empty `data` → render an empty `<svg>` (no polyline); single point → a flat 2-point line. `max <= 0` treated as `1` to avoid divide-by-zero.
-- Stroke via `currentColor` so the parent sets colour with a Tailwind text class.
+- 渲染一個帶有 `viewBox="0 0 100 100"`（`preserveAspectRatio="none"`，填滿容器）的 `<svg>`，內含一條 `<polyline>`。
+- 將 `data` 映射為點：x 依索引等間距分布於 `0..100`，y = `100 - clamp(value / max, 0, 1) * 100`（數值越高，折線越高）。
+- 邊界情況：`data` 為空 → 渲染空 `<svg>`（無 polyline）；單一資料點 → 水平兩點線。`max <= 0` 視為 `1` 以避免除以零。
+- 以 `currentColor` 設定筆畫色彩，讓父元素透過 Tailwind text class 控制顏色。
 
-### View (`src/panels/sysmon/SysmonView.tsx`)
+### View（`src/panels/sysmon/SysmonView.tsx`）
 
-- `isTauri()` guard: in a plain browser (no backend) render a centered placeholder `"System monitor requires the desktop app."` (mirrors `TerminalView`), so the Vite-only path doesn't crash.
-- On mount (`useEffect` keyed on `[instanceId, config]`):
-  - Read `refreshSecs` from config (`?? 2`, clamped to `>= 1`) → `intervalMs`.
-  - Keep CPU% and Mem% history in `useState<number[]>` (or a `useRef` + forced re-render via a snapshot state). Simpler: store the latest `SysSnapshot | null` and two history arrays in state.
-  - `setInterval`: call `sysmonSample()`, set the latest snapshot, and `pushHistory` CPU% and Mem% (Mem% = `memUsed/memTotal*100`) into their buffers (cap 60).
-  - Do one immediate sample before the first interval tick so the panel isn't blank for `intervalMs`.
-  - Cleanup: `clearInterval`. **No backend teardown** (the sampler is shared/global).
-- Render (matches the approved mockup): CPU% number + `Sparkline` (emerald) + bar; Mem pair + `Sparkline` + bar; a compact row for Swap (bar or `used/total`), Load (`1.24 0.98 0.76`), Uptime.
-- A small reusable `Bar` (or reuse a Tailwind div) for the proportion bars.
+- `isTauri()` 防護：在純瀏覽器環境（無後端）下，渲染置中的提示文字 `"System monitor requires the desktop app."`（與 `TerminalView` 一致），避免 Vite-only 路徑崩潰。
+- 掛載時（`useEffect` 依賴 `[instanceId, config]`）：
+  - 從 config 讀取 `refreshSecs`（`?? 2`，clamp 至 `>= 1`）→ `intervalMs`。
+  - 以 `useState<number[]>` 保存 CPU% 與 Mem% 的歷史資料（或以 `useRef` + 強制重渲染的 snapshot state）。較簡單的做法：將最新的 `SysSnapshot | null` 及兩條歷史陣列存在 state 中。
+  - `setInterval`：呼叫 `sysmonSample()`、更新最新 snapshot，並以 `pushHistory` 將 CPU% 與 Mem%（Mem% = `memUsed/memTotal*100`）推入各自的 buffer（cap 60）。
+  - 在第一次 interval 觸發前先執行一次立即取樣，避免 panel 在 `intervalMs` 內為空白。
+  - Cleanup：`clearInterval`。**無需後端 teardown**（sampler 為共享 / 全域）。
+- 渲染（符合已核准的 mockup）：CPU% 數值 + `Sparkline`（emerald）+ 長條；Mem 對（used/total）+ `Sparkline` + 長條；Swap（長條或 `used/total`）、Load（`1.24 0.98 0.76`）、Uptime 的緊湊列。
+- 使用一個小型可重用 `Bar`（或 Tailwind div）來顯示比例長條。
 
-### Config form (`src/panels/sysmon/SysmonView.tsx` or a sibling)
+### Config form（`src/panels/sysmon/SysmonView.tsx` 或相鄰檔案）
 
-`SysmonConfigForm`: a single number input for **refresh interval (seconds)**, default 2, `min=1`. On change writes `{ ...config, refreshSecs }`.
+`SysmonConfigForm`：單一數字輸入欄位，用於設定**更新間隔（秒）**，預設 2，`min=1`。變更時寫入 `{ ...config, refreshSecs }`。
 
-### Panel registration
+### Panel 註冊
 
-- `src/panels/sysmon/index.ts` exports `sysmonPanel: PanelTypeDef`:
-  - `kind: "sysmon"`, `label: "System"`, `glyph: "📊"`, `defaultConfig: () => ({})`, `ready: sysmonReady`, `ConfigForm: SysmonConfigForm`, `View: SysmonView`.
-  - **No `onDestroy`** (no per-instance backend resource to release).
-- `src/panels/index.ts`: register it alongside web + terminal (per-kind idempotent guard).
-
----
-
-## §4 Testing
-
-**Rust (`cargo test`, in `sysmon.rs`):**
-- `Sampler::start()` then `snapshot()` returns plausible values: `mem_total > 0`, `0.0 <= cpu <= 100.0`, `load` finite, `uptime_secs > 0`. (One sample; no timing assertions.)
-
-**Frontend (Vitest):**
-- `sysmonReady` → always true.
-- `formatBytes` / `formatMemPair` → boundaries (bytes→M→G, rounding).
-- `formatUptime` → `< 1h`, `< 1d`, `> 1d` cases (e.g. `90061` → `"1d 01:01"`).
-- `pushHistory` → appends; drops oldest past cap; does not mutate input.
-- `Sparkline` (Testing Library + jsdom) → empty data renders no `<polyline>`; N points → a `<polyline>` whose `points` has N coords; values normalise against `max` (a value == max maps to y≈0, 0 maps to y≈100).
-
-`SysmonView`'s live polling is **not** unit-tested (needs the Tauri runtime); covered by manual GUI verification.
-
-**Manual GUI verification (`pnpm tauri dev` + XTest/screenshot recipe):** place a System panel, confirm numbers populate within ~2 s, CPU% reacts to load (e.g. run `yes > /dev/null` in a Terminal panel and watch CPU climb), sparklines grow over time, and changing the refresh interval via the gear takes effect.
+- `src/panels/sysmon/index.ts` 匯出 `sysmonPanel: PanelTypeDef`：
+  - `kind: "sysmon"`、`label: "System"`、`glyph: "📊"`、`defaultConfig: () => ({})`、`ready: sysmonReady`、`ConfigForm: SysmonConfigForm`、`View: SysmonView`。
+  - **不設 `onDestroy`**（無每實例後端資源需要釋放）。
+- `src/panels/index.ts`：與 web + terminal 並列註冊（依 kind 的冪等防護）。
 
 ---
 
-## §5 File Structure & Phasing
+## §4 測試 (Testing)
 
-**New / modified files:**
+**Rust（`cargo test`，位於 `sysmon.rs`）：**
+- `Sampler::start()` 後呼叫 `snapshot()`，確認回傳值合理：`mem_total > 0`、`0.0 <= cpu <= 100.0`、`load` 為有限數、`uptime_secs > 0`。（單次取樣；不含時序斷言。）
+
+**前端（Vitest）：**
+- `sysmonReady` → 永遠為 true。
+- `formatBytes` / `formatMemPair` → 邊界值（bytes→M→G，進位）。
+- `formatUptime` → `< 1h`、`< 1d`、`> 1d` 情境（例如 `90061` → `"1d 01:01"`）。
+- `pushHistory` → 附加資料；超過 cap 時丟棄最舊；不 mutate 輸入。
+- `Sparkline`（Testing Library + jsdom）→ 空 data 渲染時無 `<polyline>`；N 個資料點 → `<polyline>` 的 `points` 含 N 個座標；數值依 `max` 正規化（等於 max 的值映射至 y≈0，0 映射至 y≈100）。
+
+`SysmonView` 的即時輪詢**不進行**單元測試（需要 Tauri 執行期）；由人工 GUI 驗證涵蓋。
+
+**人工 GUI 驗證（`pnpm tauri dev` + XTest/截圖流程）：** 放置一個 System panel，確認數值在約 2 秒內填入，CPU% 對負載有反應（例如在 Terminal panel 中執行 `yes > /dev/null` 並觀察 CPU 攀升），sparkline 隨時間增長，且透過 gear 更改更新間隔後立即生效。
+
+---
+
+## §5 檔案結構與分階段執行 (File Structure & Phasing)
+
+**新增 / 修改的檔案：**
 ```
 src-tauri/
   Cargo.toml                      (+ sysinfo = "0.33")
@@ -213,13 +213,13 @@ src/
   + matching *.test.ts(x) files for types/format/Sparkline/registration
 ```
 
-**Phasing (implementation order, each independently testable):**
-1. Backend: `sysinfo` dep + `Sampler`/`SysSnapshot` + Rust test.
-2. Backend: `sysmon_sample` command + module wiring + `.manage`.
-3. Frontend: `types.ts` (`SysmonConfig`/`sysmonReady`) + `format.ts` helpers + their tests.
-4. Frontend: `Sparkline` + test.
-5. Frontend: `sysmonSample` IPC wrapper + `SysmonView` + `SysmonConfigForm`.
-6. Register `sysmonPanel` + registration test.
-7. Manual GUI verification.
+**分階段執行（實作順序，每階段均可獨立測試）：**
+1. 後端：`sysinfo` 相依性 + `Sampler`/`SysSnapshot` + Rust 測試。
+2. 後端：`sysmon_sample` 指令 + 模組接線 + `.manage`。
+3. 前端：`types.ts`（`SysmonConfig`/`sysmonReady`）+ `format.ts` 輔助工具 + 各自的測試。
+4. 前端：`Sparkline` + 測試。
+5. 前端：`sysmonSample` IPC wrapper + `SysmonView` + `SysmonConfigForm`。
+6. 註冊 `sysmonPanel` + 註冊測試。
+7. 人工 GUI 驗證。
 
-This mirrors the M3 cadence (backend-first, pure-logic frontend tests, GUI last) and reuses the established panel-registry, IPC-wrapper, and config-modal infrastructure unchanged.
+此分階段方式與 M3 節奏一致（後端優先、純邏輯前端測試、GUI 最後），並且在不修改的前提下重用已建立的 panel-registry、IPC wrapper 與 config-modal 基礎設施。
