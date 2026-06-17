@@ -19,4 +19,15 @@ describe("registerAllPanels", () => {
     registerAllPanels(); // after a clear, must register again (no stale flag)
     expect(getPanelType("web")?.label).toBe("Web");
   });
+
+  it("registers the terminal panel", () => {
+    registerAllPanels();
+    expect(getPanelType("terminal")?.label).toBe("Terminal");
+  });
+
+  it("registers both built-in panels exactly once", () => {
+    registerAllPanels();
+    registerAllPanels(); // idempotent
+    expect(allPanelTypes()).toHaveLength(2);
+  });
 });
