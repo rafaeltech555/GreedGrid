@@ -126,7 +126,7 @@ export function SysmonConfigForm({ config, onChange }: ConfigFormProps) {
         type="number"
         min={1}
         value={cfg.refreshSecs ?? 2}
-        onChange={(e) => onChange({ ...config, refreshSecs: Number(e.target.value) })}
+        onChange={(e) => onChange({ ...config, refreshSecs: Math.max(1, Number(e.target.value) || 2) })}
         className="rounded border border-white/15 bg-black/30 px-2 py-1 text-white outline-none focus:border-emerald-400/60"
       />
     </label>
