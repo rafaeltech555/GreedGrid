@@ -23,6 +23,7 @@ beforeEach(() => {
   useLayoutStore.setState({
     layout: layout4,
     selectedIds: [],
+    selectMode: false,
     loadLayout: mockLoadLayout,
   });
   vi.clearAllMocks();
@@ -119,5 +120,26 @@ describe("Toolbar — preset switch confirmation flow", () => {
     // First call used the render-time layout snapshot; second call reads live store value (layout4)
     expect(mockRemap).toHaveBeenNthCalledWith(1, layout4, 6);
     expect(mockRemap).toHaveBeenNthCalledWith(2, layout4, 6);
+  });
+});
+
+describe("Toolbar — select mode", () => {
+  it("Select button toggles selectMode and reflects aria-pressed", () => {
+    render(<Toolbar />);
+    const btn = screen.getByRole("button", { name: "Select" });
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(btn);
+    expect(useLayoutStore.getState().selectMode).toBe(true);
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(btn);
+    expect(useLayoutStore.getState().selectMode).toBe(false);
+  });
+
+  it("Escape exits select mode", () => {
+    render(<Toolbar />);
+    fireEvent.click(screen.getByRole("button", { name: "Select" }));
+    expect(useLayoutStore.getState().selectMode).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(useLayoutStore.getState().selectMode).toBe(false);
   });
 });

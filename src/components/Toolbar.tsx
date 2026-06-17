@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   selectionMergeable,
   selectionSplittable,
@@ -29,11 +29,23 @@ export function Toolbar() {
   const mergeSelected = useLayoutStore((s) => s.mergeSelected);
   const splitSelected = useLayoutStore((s) => s.splitSelected);
   const clearSelection = useLayoutStore((s) => s.clearSelection);
+  const selectMode = useLayoutStore((s) => s.selectMode);
+  const toggleSelectMode = useLayoutStore((s) => s.toggleSelectMode);
+  const setSelectMode = useLayoutStore((s) => s.setSelectMode);
   const selectedCount = useLayoutStore((s) => s.selectedIds.length);
   const canMerge = useLayoutStore(selectionMergeable);
   const canSplit = useLayoutStore(selectionSplittable);
 
   const [pendingPreset, setPendingPreset] = useState<PendingPreset>(null);
+
+  useEffect(() => {
+    if (!selectMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectMode(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectMode, setSelectMode]);
 
   function handlePresetClick(count: PresetCount) {
     const { layout: next, dropped } = remapToPreset(layout, count);
@@ -60,6 +72,18 @@ export function Toolbar() {
       </div>
 
       <div className="mx-1 h-4 w-px bg-white/10" />
+
+      <button
+        onClick={toggleSelectMode}
+        aria-pressed={selectMode}
+        className={`rounded border px-2.5 py-1 text-xs ${
+          selectMode
+            ? "border-emerald-400 bg-emerald-400/10 text-emerald-300"
+            : "border-white/10 text-white/70 hover:border-emerald-400/50 hover:text-white"
+        }`}
+      >
+        Select
+      </button>
 
       <button
         onClick={mergeSelected}
