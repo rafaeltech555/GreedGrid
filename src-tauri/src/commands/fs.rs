@@ -60,7 +60,7 @@ pub fn fs_list(path: Option<String>) -> AppResult<ListResult> {
 }
 
 fn validate_name(name: &str) -> AppResult<()> {
-    if name.is_empty() || name.contains('/') {
+    if name.is_empty() || name == "." || name == ".." || name.contains('/') {
         return Err(AppError::Other(format!("invalid name: {name:?}")));
     }
     Ok(())
@@ -160,6 +160,8 @@ mod tests {
 
         assert!(fs_mkdir(base.clone(), "".into()).is_err());
         assert!(fs_mkdir(base.clone(), "a/b".into()).is_err());
+        assert!(fs_mkdir(base.clone(), ".".into()).is_err());
+        assert!(fs_mkdir(base.clone(), "..".into()).is_err());
 
         fs_mkdir(base.clone(), "ok".into()).unwrap();
         assert!(fs_rename(dir.join("ok").to_string_lossy().to_string(), "a/b".into()).is_err());
