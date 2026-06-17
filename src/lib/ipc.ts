@@ -1,7 +1,9 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import type { PingInfo } from "./types";
 import type { TermConfig } from "../panels/terminal/types";
 import type { SysSnapshot } from "../panels/sysmon/types";
+import type { ListResult } from "../panels/file/types";
 
 // Single typed wrapper around Tauri's `invoke`, mirroring the convention used in
 // the other Tauri projects (Keytainer's lib/ipc.ts). Every backend command gets
@@ -58,4 +60,31 @@ export function termClose(instanceId: string): Promise<void> {
 /** Read the latest host-vitals snapshot from the shared backend sampler. */
 export function sysmonSample(): Promise<SysSnapshot> {
   return invoke<SysSnapshot>("sysmon_sample");
+}
+
+// --- File Browser (M5) ------------------------------------------------------
+/** List a directory (empty path → backend uses $HOME); returns the canonical
+ *  path actually listed plus its entries. */
+export function fsList(path?: string): Promise<ListResult> {
+  return invoke<ListResult>("fs_list", { path });
+}
+
+/** Permanently delete a file (or recursively, a directory). */
+export function fsDelete(path: string): Promise<void> {
+  return invoke<void>("fs_delete", { path });
+}
+
+/** Rename an entry in place to `newName` (no path separators allowed). */
+export function fsRename(path: string, newName: string): Promise<void> {
+  return invoke<void>("fs_rename", { path, newName });
+}
+
+/** Create a new directory `name` under `parent`. */
+export function fsMkdir(parent: string, name: string): Promise<void> {
+  return invoke<void>("fs_mkdir", { parent, name });
+}
+
+/** Open a file/directory in the OS default application (tauri-plugin-opener). */
+export function openInDefaultApp(path: string): Promise<void> {
+  return openPath(path);
 }
