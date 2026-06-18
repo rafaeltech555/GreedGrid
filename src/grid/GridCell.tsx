@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Cell, PanelKind } from "../lib/types";
+import type { SessionInfo } from "../panels/terminal/types";
 import { useLayoutStore } from "../store/layoutStore";
 import { getPanelType } from "../panels/registry";
 import { usePanelUiStore } from "../panels/panelUiStore";
 import { PanelPicker } from "../panels/PanelPicker";
 import { PANEL_KIND_DND, PANEL_MOVE_DND, resolveDropTarget, resolveMove } from "../panels/dnd";
-import { pickFolder } from "../lib/ipc";
+import { isTauri, pickFolder, termClose, termList } from "../lib/ipc";
 
 interface GridCellProps {
   cell: Cell;
@@ -32,6 +33,54 @@ export function GridCell({ cell }: GridCellProps) {
   const openEditModal = usePanelUiStore((s) => s.openEditModal);
 
   const isSelected = selectedIds.includes(cell.id);
+  const pickerOpen = pickerCellId === cell.id;
+
+  // Detached pty sessions offered for reattach while this cell's picker is open.
+  const [orphans, setOrphans] = useState<SessionInfo[]>([]);
+
+  // Sessions that are alive, unattached, and not already placed in the layout.
+  const computeOrphans = (sessions: SessionInfo[]): SessionInfo[] => {
+    const placed = new Set<string>();
+    for (const c of cells) {
+      if (c.panel) placed.add(c.panel.instanceId);
+    }
+    return sessions.filter((s) => s.alive && !s.attached && !placed.has(s.instanceId));
+  };
+
+  useEffect(() => {
+    if (!pickerOpen || !isTauri()) {
+      setOrphans([]);
+      return;
+    }
+    let cancelled = false;
+    termList()
+      .then((sessions) => {
+        if (!cancelled) setOrphans(computeOrphans(sessions));
+      })
+      .catch((err) => {
+        console.error("term_list failed", err);
+        if (!cancelled) setOrphans([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerOpen, cells]);
+
+  const onReattach = (info: SessionInfo) => {
+    closePicker();
+    setPanel(
+      cell.id,
+      "terminal",
+      { shell: info.shell, cwd: info.cwd ?? undefined },
+      () => info.instanceId,
+    );
+  };
+
+  const onKill = (instanceId: string) => {
+    void termClose(instanceId).catch((err) => console.error("term_close failed", err));
+    setOrphans((prev) => prev.filter((o) => o.instanceId !== instanceId));
+  };
 
   const placeKind = async (kind: PanelKind) => {
     const def = getPanelType(kind);
@@ -130,8 +179,13 @@ export function GridCell({ cell }: GridCellProps) {
             </button>
           </div>
         </>
-      ) : pickerCellId === cell.id ? (
-        <PanelPicker onPick={placeKind} />
+      ) : pickerOpen ? (
+        <PanelPicker
+          onPick={placeKind}
+          orphans={orphans}
+          onReattach={onReattach}
+          onKill={onKill}
+        />
       ) : (
         <button
           onClick={() => openPicker(cell.id)}

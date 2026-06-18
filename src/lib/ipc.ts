@@ -2,7 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import type { PingInfo } from "./types";
-import type { TermConfig } from "../panels/terminal/types";
+import type { SessionInfo, TermConfig } from "../panels/terminal/types";
 import type { SysSnapshot } from "../panels/sysmon/types";
 import type { ListResult } from "../panels/file/types";
 
@@ -52,9 +52,20 @@ export function termResize(instanceId: string, cols: number, rows: number): Prom
   return invoke<void>("term_resize", { instanceId, cols, rows });
 }
 
-/** Kill the pty and drop its backend session. Called from the panel's onDestroy. */
+/** Kill the pty and drop its backend session. An explicit destructive action. */
 export function termClose(instanceId: string): Promise<void> {
   return invoke<void>("term_close", { instanceId });
+}
+
+/** Detach the pty's output sink but keep the session alive for later reattach.
+ *  Called from the panel's onDestroy — the session survives for reattach UI. */
+export function termDetach(instanceId: string): Promise<void> {
+  return invoke<void>("term_detach", { instanceId });
+}
+
+/** List live pty sessions (for the reattach UI), including detached ones. */
+export function termList(): Promise<SessionInfo[]> {
+  return invoke<SessionInfo[]>("term_list");
 }
 
 // --- System Monitor (M4) ----------------------------------------------------

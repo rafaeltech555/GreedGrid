@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PanelPicker } from "./PanelPicker";
 import { __clearRegistry, registerPanel } from "./registry";
 import type { PanelTypeDef } from "./types";
+import type { SessionInfo } from "./terminal/types";
 
 const def = (kind: PanelTypeDef["kind"], ready: boolean): PanelTypeDef => ({
   kind,
@@ -34,5 +35,42 @@ describe("PanelPicker", () => {
     render(<PanelPicker onPick={onPick} />);
     await userEvent.click(screen.getByRole("button", { name: /WEB/ }));
     expect(onPick).toHaveBeenCalledWith("web");
+  });
+
+  it("does not render the detached-terminals section when orphans is empty", () => {
+    render(<PanelPicker onPick={() => {}} orphans={[]} />);
+    expect(screen.queryByText(/Detached terminals/i)).not.toBeInTheDocument();
+    // existing panel-type buttons still render
+    expect(screen.getByRole("button", { name: /WEB/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /SYSMON/ })).toBeInTheDocument();
+  });
+
+  it("renders detached terminals and wires reattach/kill", async () => {
+    const orphans: SessionInfo[] = [
+      { instanceId: "id-1", shell: "/bin/bash", cwd: "/home/finn/proj", alive: true, attached: false },
+      { instanceId: "id-2", shell: "/usr/bin/zsh", cwd: null, alive: false, attached: false },
+    ];
+    const onReattach = vi.fn();
+    const onKill = vi.fn();
+    render(
+      <PanelPicker
+        onPick={() => {}}
+        orphans={orphans}
+        onReattach={onReattach}
+        onKill={onKill}
+      />,
+    );
+
+    expect(screen.getByText(/Detached terminals/i)).toBeInTheDocument();
+    expect(screen.getByText(/bash/)).toBeInTheDocument();
+    expect(screen.getByText(/zsh/)).toBeInTheDocument();
+
+    const reattachButtons = screen.getAllByRole("button", { name: /Reattach/ });
+    await userEvent.click(reattachButtons[0]);
+    expect(onReattach).toHaveBeenCalledWith(orphans[0]);
+
+    const killButtons = screen.getAllByRole("button", { name: /Kill session/ });
+    await userEvent.click(killButtons[1]);
+    expect(onKill).toHaveBeenCalledWith("id-2");
   });
 });
