@@ -5,6 +5,7 @@ import { getPanelType } from "../panels/registry";
 import { usePanelUiStore } from "../panels/panelUiStore";
 import { PanelPicker } from "../panels/PanelPicker";
 import { PANEL_KIND_DND, PANEL_MOVE_DND, resolveDropTarget, resolveMove } from "../panels/dnd";
+import { pickFolder } from "../lib/ipc";
 
 interface GridCellProps {
   cell: Cell;
@@ -32,10 +33,19 @@ export function GridCell({ cell }: GridCellProps) {
 
   const isSelected = selectedIds.includes(cell.id);
 
-  const placeKind = (kind: PanelKind) => {
+  const placeKind = async (kind: PanelKind) => {
     const def = getPanelType(kind);
     if (!def) return;
     closePicker();
+    if (kind === "file" || kind === "terminal") {
+      const dir = await pickFolder();
+      if (kind === "file") {
+        setPanel(cell.id, "file", dir ? { path: dir } : undefined);
+      } else {
+        setPanel(cell.id, "terminal", dir ? { cwd: dir } : undefined);
+      }
+      return;
+    }
     if (def.ready(def.defaultConfig())) {
       setPanel(cell.id, kind);
     } else {

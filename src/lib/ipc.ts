@@ -1,4 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import type { PingInfo } from "./types";
 import type { TermConfig } from "../panels/terminal/types";
@@ -63,6 +64,14 @@ export function sysmonSample(): Promise<SysSnapshot> {
 }
 
 // --- File Browser (M5) ------------------------------------------------------
+/** Open a native folder picker dialog; returns the selected absolute path, or
+ *  null if the user cancelled or the app is not running inside Tauri. */
+export async function pickFolder(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const res = await open({ directory: true, multiple: false });
+  return typeof res === "string" ? res : null;
+}
+
 /** List a directory (empty path → backend uses $HOME); returns the canonical
  *  path actually listed plus its entries. */
 export function fsList(path?: string): Promise<ListResult> {

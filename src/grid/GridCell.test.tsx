@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GridCell } from "./GridCell";
 import { useLayoutStore } from "../store/layoutStore";
@@ -9,6 +9,18 @@ import { makePreset } from "./presets";
 import { cellId } from "./cellId";
 import type { PanelTypeDef } from "../panels/types";
 import { PANEL_KIND_DND, PANEL_MOVE_DND } from "../panels/dnd";
+
+// Mock the ipc module so pickFolder is controllable in tests.
+vi.mock("../lib/ipc", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/ipc")>();
+  return {
+    ...actual,
+    pickFolder: vi.fn().mockResolvedValue(null),
+  };
+});
+
+import { pickFolder } from "../lib/ipc";
+const mockPickFolder = vi.mocked(pickFolder);
 
 const webDef: PanelTypeDef = {
   kind: "web",
@@ -20,13 +32,39 @@ const webDef: PanelTypeDef = {
   View: ({ config }) => <div data-testid="web-view">{config.url as string}</div>,
 };
 
+const fileDef: PanelTypeDef = {
+  kind: "file",
+  label: "Files",
+  glyph: "📁",
+  defaultConfig: () => ({}),
+  ready: () => true,
+  ConfigForm: () => null,
+  View: () => <div data-testid="file-view" />,
+};
+
+const terminalDef: PanelTypeDef = {
+  kind: "terminal",
+  label: "Terminal",
+  glyph: "⌨",
+  defaultConfig: () => ({}),
+  ready: () => true,
+  ConfigForm: () => null,
+  View: () => <div data-testid="terminal-view" />,
+};
+
 beforeEach(() => {
   __clearRegistry();
   registerPanel(webDef);
+  registerPanel(fileDef);
+  registerPanel(terminalDef);
   useLayoutStore.setState({ layout: makePreset(4), selectedIds: [], selectMode: false });
   usePanelUiStore.setState({ pickerCellId: null, modal: null });
+  mockPickFolder.mockResolvedValue(null);
 });
-afterEach(() => __clearRegistry());
+afterEach(() => {
+  __clearRegistry();
+  vi.clearAllMocks();
+});
 
 const cellOf = (id: string) =>
   useLayoutStore.getState().layout.cells.find((c) => c.id === id)!;
@@ -187,6 +225,118 @@ describe("GridCell", () => {
       // panel should remain unchanged
       expect(cellOf(id).panel?.config).toEqual({ url: "https://x" });
     });
+  });
 
+  describe("placeKind — file/terminal use native folder picker", () => {
+    it("picking Files with a selected dir sets panel with { path }", async () => {
+      const id = cellId(1, 1);
+      mockPickFolder.mockResolvedValue("/some/dir");
+      // Open the picker for the cell
+      usePanelUiStore.setState({ pickerCellId: id, modal: null });
+      render(<GridCell cell={cellOf(id)} />);
+      // Click the "Files" button in the PanelPicker
+      await userEvent.click(screen.getByRole("button", { name: /Files/ }));
+      await waitFor(() => {
+        const cell = cellOf(id);
+        expect(cell.panel?.kind).toBe("file");
+        expect(cell.panel?.config).toEqual({ path: "/some/dir" });
+      });
+    });
+
+    it("picking Files when folder dialog is cancelled sets panel with default config", async () => {
+      const id = cellId(1, 1);
+      mockPickFolder.mockResolvedValue(null);
+      usePanelUiStore.setState({ pickerCellId: id, modal: null });
+      render(<GridCell cell={cellOf(id)} />);
+      await userEvent.click(screen.getByRole("button", { name: /Files/ }));
+      await waitFor(() => {
+        const cell = cellOf(id);
+        expect(cell.panel?.kind).toBe("file");
+        // null dir → undefined initialConfig → defaultConfig() = {}
+        expect(cell.panel?.config).toEqual({});
+      });
+    });
+
+    it("picking Terminal with a selected dir sets panel with { cwd }", async () => {
+      const id = cellId(1, 1);
+      mockPickFolder.mockResolvedValue("/some/dir");
+      usePanelUiStore.setState({ pickerCellId: id, modal: null });
+      render(<GridCell cell={cellOf(id)} />);
+      await userEvent.click(screen.getByRole("button", { name: /Terminal/ }));
+      await waitFor(() => {
+        const cell = cellOf(id);
+        expect(cell.panel?.kind).toBe("terminal");
+        expect(cell.panel?.config).toEqual({ cwd: "/some/dir" });
+      });
+    });
+
+    it("picking Terminal when folder dialog is cancelled sets panel with default config", async () => {
+      const id = cellId(1, 1);
+      mockPickFolder.mockResolvedValue(null);
+      usePanelUiStore.setState({ pickerCellId: id, modal: null });
+      render(<GridCell cell={cellOf(id)} />);
+      await userEvent.click(screen.getByRole("button", { name: /Terminal/ }));
+      await waitFor(() => {
+        const cell = cellOf(id);
+        expect(cell.panel?.kind).toBe("terminal");
+        expect(cell.panel?.config).toEqual({});
+      });
+    });
+
+    it("closePicker is called before pickFolder (picker dismissed before native dialog)", async () => {
+      const id = cellId(1, 1);
+      const calls: string[] = [];
+      mockPickFolder.mockImplementation(async () => {
+        calls.push("pickFolder");
+        return null;
+      });
+      // Spy on closePicker via store
+      const originalClosePicker = usePanelUiStore.getState().closePicker;
+      usePanelUiStore.setState({
+        pickerCellId: id,
+        modal: null,
+        closePicker: () => {
+          calls.push("closePicker");
+          originalClosePicker();
+        },
+      });
+      render(<GridCell cell={cellOf(id)} />);
+      await userEvent.click(screen.getByRole("button", { name: /Files/ }));
+      await waitFor(() => expect(calls).toContain("pickFolder"));
+      expect(calls.indexOf("closePicker")).toBeLessThan(calls.indexOf("pickFolder"));
+    });
+
+    it("picking Files from palette drop (kind=file) calls pickFolder, sets panel with dir", async () => {
+      const id = cellId(1, 1);
+      mockPickFolder.mockResolvedValue("/palette/dir");
+      render(<GridCell cell={cellOf(id)} />);
+      const cellEl = screen.getByTestId(`cell-${id}`);
+      const dataTransfer = {
+        getData: (type: string) => (type === PANEL_KIND_DND ? "file" : ""),
+      };
+      fireEvent.drop(cellEl, { dataTransfer });
+      await waitFor(() => {
+        const cell = cellOf(id);
+        expect(cell.panel?.kind).toBe("file");
+        expect(cell.panel?.config).toEqual({ path: "/palette/dir" });
+      });
+    });
+
+    it("picking web kind from palette still uses ready/openCreateModal (not pickFolder)", () => {
+      const id = cellId(1, 1);
+      render(<GridCell cell={cellOf(id)} />);
+      const cellEl = screen.getByTestId(`cell-${id}`);
+      const dataTransfer = {
+        getData: (type: string) => (type === PANEL_KIND_DND ? "web" : ""),
+      };
+      fireEvent.drop(cellEl, { dataTransfer });
+      // web is not ready → opens create modal, pickFolder not called
+      expect(mockPickFolder).not.toHaveBeenCalled();
+      expect(usePanelUiStore.getState().modal).toEqual({
+        cellId: id,
+        kind: "web",
+        mode: "create",
+      });
+    });
   });
 });
