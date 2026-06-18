@@ -8,7 +8,7 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::error::AppResult;
-use crate::pty::{OpenOpts, OutputSink, PtyRegistry};
+use crate::pty::{OpenOpts, OutputSink, PtyRegistry, SessionInfo};
 
 /// Adapts a Tauri output `Channel` to the engine's `OutputSink`.
 struct ChannelSink(Channel<Vec<u8>>);
@@ -69,4 +69,17 @@ pub async fn term_resize(
 #[tauri::command]
 pub async fn term_close(instance_id: String, state: State<'_, PtyRegistry>) -> AppResult<()> {
     state.close(&instance_id)
+}
+
+/// Detach the frontend from a session without killing it — the PTY stays alive
+/// so it can be reattached later via `term_open`.
+#[tauri::command]
+pub async fn term_detach(instance_id: String, state: State<'_, PtyRegistry>) -> AppResult<()> {
+    state.detach(&instance_id)
+}
+
+/// List live PTY sessions so the frontend can offer reattach.
+#[tauri::command]
+pub async fn term_list(state: State<'_, PtyRegistry>) -> AppResult<Vec<SessionInfo>> {
+    Ok(state.list())
 }

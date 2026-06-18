@@ -74,6 +74,23 @@ struct PtySession {
     child: Box<dyn Child + Send>,
     scrollback: Arc<Mutex<ScrollbackBuffer>>,
     sink: Arc<Mutex<Option<Arc<dyn OutputSink>>>>,
+    /// Resolved shell/cwd captured at spawn, surfaced to the frontend via `list`
+    /// so a reattach UI can label detached sessions.
+    shell: String,
+    cwd: Option<String>,
+}
+
+/// Serializable summary of one session, returned by `PtyRegistry::list` for the
+/// reattach UI. `camelCase` to match the TS side (same convention as
+/// `SysSnapshot` in `sysmon.rs`).
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionInfo {
+    pub instance_id: String,
+    pub shell: String,
+    pub cwd: Option<String>,
+    pub alive: bool,
+    pub attached: bool,
 }
 
 /// Registry of live PTYs keyed by panel `instanceId`. Lives in Tauri app state.
@@ -175,6 +192,8 @@ impl PtyRegistry {
                 child,
                 scrollback,
                 sink: sink_slot,
+                shell: opts.shell,
+                cwd: opts.cwd,
             },
         );
         Ok(())
@@ -216,6 +235,42 @@ impl PtyRegistry {
             let _ = session.child.wait(); // reap so we don't leak a zombie process
         }
         Ok(())
+    }
+
+    /// Detach the frontend from a session without killing it: clear the sink
+    /// slot so the reader thread stops forwarding, while the child + reader keep
+    /// running and scrollback keeps filling. Reattach later via `open`, which
+    /// replays scrollback. Idempotent on unknown ids, like `close`.
+    pub fn detach(&self, instance_id: &str) -> AppResult<()> {
+        let map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(session) = map.get(instance_id) {
+            *session.sink.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        }
+        Ok(())
+    }
+
+    /// Snapshot every live session for the reattach UI. `alive` reflects whether
+    /// the child is still running (`try_wait` → `Ok(None)`); `attached` reflects
+    /// whether a frontend sink is currently bound.
+    pub fn list(&self) -> Vec<SessionInfo> {
+        let mut map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        map.iter_mut()
+            .map(|(instance_id, session)| {
+                let alive = matches!(session.child.try_wait(), Ok(None));
+                let attached = session
+                    .sink
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .is_some();
+                SessionInfo {
+                    instance_id: instance_id.clone(),
+                    shell: session.shell.clone(),
+                    cwd: session.cwd.clone(),
+                    alive,
+                    attached,
+                }
+            })
+            .collect()
     }
 }
 
@@ -318,5 +373,76 @@ mod tests {
     fn write_to_unknown_session_errors() {
         let reg = PtyRegistry::default();
         assert!(reg.write("nope", b"x").is_err());
+    }
+
+    #[test]
+    fn detach_then_reattach_replays_scrollback() {
+        let reg = PtyRegistry::default();
+
+        let sink1 = Arc::new(VecSink::default());
+        reg.open("t1", opts(), sink1.clone()).unwrap();
+        reg.write("t1", b"printf GREEDGRID_OK\n").unwrap();
+        assert!(
+            wait_for(&sink1, b"GREEDGRID_OK"),
+            "expected command output on the live sink"
+        );
+
+        // Detach clears the sink but keeps the session alive.
+        reg.detach("t1").unwrap();
+        let listed = reg.list();
+        let entry = listed
+            .iter()
+            .find(|s| s.instance_id == "t1")
+            .expect("detached session must still be listed");
+        assert!(!entry.attached, "detached session must report attached=false");
+        assert!(entry.alive, "detached session must still be alive");
+
+        // Reattach with a fresh sink: scrollback replays.
+        let sink2 = Arc::new(VecSink::default());
+        reg.open("t1", opts(), sink2.clone()).unwrap();
+        assert!(
+            sink2.contains(b"GREEDGRID_OK"),
+            "reattach must replay prior scrollback into the new sink"
+        );
+    }
+
+    #[test]
+    fn detach_keeps_child_alive() {
+        let reg = PtyRegistry::default();
+
+        let sink = Arc::new(VecSink::default());
+        reg.open("t2", opts(), sink.clone()).unwrap();
+        reg.write("t2", b"printf GREEDGRID_MARK\n").unwrap();
+        assert!(wait_for(&sink, b"GREEDGRID_MARK"), "expected marker output");
+
+        reg.detach("t2").unwrap();
+        // The session survived detach: a write still reaches the live child.
+        assert!(
+            reg.write("t2", b"x").is_ok(),
+            "write after detach must succeed (session still alive)"
+        );
+    }
+
+    #[test]
+    fn list_reports_exited_session() {
+        let reg = PtyRegistry::default();
+
+        let sink = Arc::new(VecSink::default());
+        reg.open("t3", opts(), sink.clone()).unwrap();
+        reg.write("t3", b"exit\n").unwrap();
+
+        // Poll until the session reports as exited; it stays in the map until close.
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut exited = false;
+        while Instant::now() < deadline {
+            if let Some(entry) = reg.list().iter().find(|s| s.instance_id == "t3") {
+                if !entry.alive {
+                    exited = true;
+                    break;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(exited, "list must eventually report the exited session as alive=false");
     }
 }

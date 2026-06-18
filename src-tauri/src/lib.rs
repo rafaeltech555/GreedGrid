@@ -20,6 +20,8 @@ pub fn run() {
             commands::pty::term_write,
             commands::pty::term_resize,
             commands::pty::term_close,
+            commands::pty::term_detach,
+            commands::pty::term_list,
             commands::sysmon::sysmon_sample,
             commands::fs::fs_list,
             commands::fs::fs_delete,
