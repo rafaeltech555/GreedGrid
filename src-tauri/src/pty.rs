@@ -242,9 +242,9 @@ impl PtyRegistry {
     /// running and scrollback keeps filling. Reattach later via `open`, which
     /// replays scrollback. Idempotent on unknown ids, like `close`.
     pub fn detach(&self, instance_id: &str) -> AppResult<()> {
-        let map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let map = self.0.lock().unwrap();
         if let Some(session) = map.get(instance_id) {
-            *session.sink.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            *session.sink.lock().unwrap() = None;
         }
         Ok(())
     }
@@ -253,15 +253,14 @@ impl PtyRegistry {
     /// the child is still running (`try_wait` → `Ok(None)`); `attached` reflects
     /// whether a frontend sink is currently bound.
     pub fn list(&self) -> Vec<SessionInfo> {
-        let mut map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut map = self.0.lock().unwrap();
+        // We hold the registry lock across `child.try_wait()`; that's fine because
+        // `try_wait()` is non-blocking (same as `close` holding the lock across
+        // `kill`/`wait`).
         map.iter_mut()
             .map(|(instance_id, session)| {
                 let alive = matches!(session.child.try_wait(), Ok(None));
-                let attached = session
-                    .sink
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .is_some();
+                let attached = session.sink.lock().unwrap().is_some();
                 SessionInfo {
                     instance_id: instance_id.clone(),
                     shell: session.shell.clone(),
@@ -443,6 +442,9 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        assert!(exited, "list must eventually report the exited session as alive=false");
+        assert!(
+            exited,
+            "list must eventually report the exited session with alive == false"
+        );
     }
 }
