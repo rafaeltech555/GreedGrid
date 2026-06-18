@@ -30,6 +30,7 @@ interface LayoutState {
   ) => void;
   updatePanelConfig: (cellId: string, config: Record<string, unknown>) => void;
   clearPanel: (cellId: string) => void;
+  movePanel: (fromCellId: string, toCellId: string) => void;
 }
 
 /** Whether the current selection can be merged into one cell. */
@@ -149,6 +150,24 @@ export const useLayoutStore = create<LayoutState>((set) => ({
         cells: s.layout.cells.map((c) =>
           c.id === cellId ? { ...c, panel: null } : c,
         ),
+      };
+      fireDestroyed(s.layout, after);
+      return { layout: after };
+    }),
+
+  movePanel: (fromCellId, toCellId) =>
+    set((s) => {
+      const from = s.layout.cells.find((c) => c.id === fromCellId);
+      const to = s.layout.cells.find((c) => c.id === toCellId);
+      // Guard mirrors resolveMove() in dnd.ts — keep the two in sync.
+      if (!from || !to || fromCellId === toCellId || from.panel == null) return s;
+      const after: GridLayout = {
+        ...s.layout,
+        cells: s.layout.cells.map((c) => {
+          if (c.id === fromCellId) return { ...c, panel: to.panel };
+          if (c.id === toCellId) return { ...c, panel: from.panel };
+          return c;
+        }),
       };
       fireDestroyed(s.layout, after);
       return { layout: after };

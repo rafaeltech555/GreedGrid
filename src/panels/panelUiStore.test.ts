@@ -4,7 +4,7 @@ import { usePanelUiStore } from "./panelUiStore";
 const u = () => usePanelUiStore.getState();
 
 beforeEach(() =>
-  usePanelUiStore.setState({ pickerCellId: null, modal: null }),
+  usePanelUiStore.setState({ pickerCellId: null, modal: null, dropMenu: null }),
 );
 
 describe("panelUiStore", () => {
@@ -28,5 +28,34 @@ describe("panelUiStore", () => {
     u().openCreateModal("c1-r1", "web");
     u().openPicker("c2-r1");
     expect(u().modal).toBeNull();
+  });
+
+  describe("dropMenu", () => {
+    const menu = { cellId: "c1-r1", path: "/home/user/projects", x: 120, y: 80 };
+
+    it("openDropMenu sets dropMenu", () => {
+      u().openDropMenu(menu);
+      expect(u().dropMenu).toEqual(menu);
+    });
+
+    it("closeDropMenu sets dropMenu to null", () => {
+      u().openDropMenu(menu);
+      u().closeDropMenu();
+      expect(u().dropMenu).toBeNull();
+    });
+
+    it("openDropMenu clears pickerCellId", () => {
+      u().openPicker("c2-r1");
+      expect(u().pickerCellId).toBe("c2-r1");
+      u().openDropMenu(menu);
+      expect(u().pickerCellId).toBeNull();
+    });
+
+    it("openDropMenu clears modal", () => {
+      u().openCreateModal("c1-r1", "web");
+      expect(u().modal).not.toBeNull();
+      u().openDropMenu(menu);
+      expect(u().modal).toBeNull();
+    });
   });
 });

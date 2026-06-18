@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import { useLayoutStore } from "../store/layoutStore";
 import { resizeTrack } from "./resize";
 import { useElementSize } from "./useElementSize";
@@ -6,6 +6,8 @@ import { GridCell } from "./GridCell";
 import { Splitter } from "./Splitter";
 import { boundarySegments } from "./merge";
 import { trackSpanPx } from "./trackPx";
+import { useFileDrop, resolveDropFolder } from "./useFileDrop";
+import { usePanelUiStore } from "../panels/panelUiStore";
 
 const SPLITTER_HIT = 10; // px hit area for grabbing a gutter
 
@@ -35,6 +37,21 @@ export function GridHost() {
   const [ref, size] = useElementSize<HTMLDivElement>();
   // Snapshot of the track array at drag start, so each move resizes from origin.
   const dragStart = useRef<number[] | null>(null);
+
+  const openDropMenu = usePanelUiStore((s) => s.openDropMenu);
+  const handleFileDrop = useCallback(
+    (cellId: string, paths: string[], pos: { x: number; y: number }) => {
+      const raw = paths[0];
+      // MVP policy: only the first path is processed; remaining paths in a
+      // multi-file drop are intentionally ignored (by design).
+      if (!raw) return;
+      void resolveDropFolder(raw).then((path) =>
+        openDropMenu({ cellId, path, x: pos.x, y: pos.y }),
+      );
+    },
+    [openDropMenu],
+  );
+  useFileDrop(handleFileDrop);
 
   const { cols, rows, gap } = layout.grid;
 

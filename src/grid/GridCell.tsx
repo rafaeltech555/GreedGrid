@@ -1,9 +1,10 @@
+import { useState } from "react";
 import type { Cell, PanelKind } from "../lib/types";
 import { useLayoutStore } from "../store/layoutStore";
 import { getPanelType } from "../panels/registry";
 import { usePanelUiStore } from "../panels/panelUiStore";
 import { PanelPicker } from "../panels/PanelPicker";
-import { PANEL_KIND_DND, resolveDropTarget } from "../panels/dnd";
+import { PANEL_KIND_DND, PANEL_MOVE_DND, resolveDropTarget, resolveMove } from "../panels/dnd";
 
 interface GridCellProps {
   cell: Cell;
@@ -15,8 +16,10 @@ interface GridCellProps {
  * drops to place a panel.
  */
 export function GridCell({ cell }: GridCellProps) {
+  const [dragging, setDragging] = useState(false);
   const setPanel = useLayoutStore((s) => s.setPanel);
   const clearPanel = useLayoutStore((s) => s.clearPanel);
+  const movePanel = useLayoutStore((s) => s.movePanel);
   const cells = useLayoutStore((s) => s.layout.cells);
   const toggleSelect = useLayoutStore((s) => s.toggleSelect);
   const selectedIds = useLayoutStore((s) => s.selectedIds);
@@ -42,6 +45,11 @@ export function GridCell({ cell }: GridCellProps) {
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    const fromId = e.dataTransfer.getData(PANEL_MOVE_DND);
+    if (fromId) {
+      if (resolveMove(cells, fromId, cell.id)) movePanel(fromId, cell.id);
+      return;
+    }
     const kind = e.dataTransfer.getData(PANEL_KIND_DND) as PanelKind;
     if (!kind) return;
     const target = resolveDropTarget(cells, cell.id);
@@ -75,11 +83,27 @@ export function GridCell({ cell }: GridCellProps) {
             : "border-white/10"
       }`}
       data-testid={`cell-${cell.id}`}
+      data-grid-cell-id={cell.id}
     >
       {cell.panel && panelDef ? (
         <>
           <panelDef.View instanceId={cell.panel.instanceId} config={cell.panel.config} />
-          <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex group-focus-within:flex">
+          <div className={`absolute right-1 top-1 gap-1 group-hover:flex group-focus-within:flex ${dragging ? "flex" : "hidden"}`}>
+            <button
+              type="button"
+              aria-label="Move panel"
+              title="Drag to move this panel"
+              draggable
+              onDragStart={(e) => {
+                setDragging(true);
+                e.dataTransfer.setData(PANEL_MOVE_DND, cell.id);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragEnd={() => setDragging(false)}
+              className="cursor-grab rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white active:cursor-grabbing"
+            >
+              ⠿
+            </button>
             <button
               aria-label="Panel settings"
               onClick={() => openEditModal(cell.id, cell.panel!.kind)}

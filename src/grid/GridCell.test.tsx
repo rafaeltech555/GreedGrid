@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GridCell } from "./GridCell";
@@ -8,7 +8,7 @@ import { __clearRegistry, registerPanel } from "../panels/registry";
 import { makePreset } from "./presets";
 import { cellId } from "./cellId";
 import type { PanelTypeDef } from "../panels/types";
-import { PANEL_KIND_DND } from "../panels/dnd";
+import { PANEL_KIND_DND, PANEL_MOVE_DND } from "../panels/dnd";
 
 const webDef: PanelTypeDef = {
   kind: "web",
@@ -132,5 +132,61 @@ describe("GridCell", () => {
       expect(cellEl.className).toMatch(/ring-inset/);
       expect(cellEl.className).toMatch(/ring-emerald-400/);
     });
+  });
+
+  describe("drag-move grip", () => {
+    it("grip exists and is draggable when cell has a panel", () => {
+      useLayoutStore.getState().setPanel(cellId(1, 1), "web", { url: "https://x" });
+      render(<GridCell cell={cellOf(cellId(1, 1))} />);
+      const grip = screen.getByRole("button", { name: "Move panel" });
+      expect(grip).toBeTruthy();
+      expect(grip).toHaveAttribute("draggable", "true");
+    });
+
+    it("grip is absent when cell has no panel", () => {
+      render(<GridCell cell={cellOf(cellId(1, 1))} />);
+      expect(screen.queryByRole("button", { name: "Move panel" })).toBeNull();
+    });
+
+    it("dragStart sets PANEL_MOVE_DND key to source cellId", () => {
+      const id = cellId(1, 1);
+      useLayoutStore.getState().setPanel(id, "web", { url: "https://x" });
+      render(<GridCell cell={cellOf(id)} />);
+      const grip = screen.getByRole("button", { name: "Move panel" });
+      const fakeTransfer = { setData: vi.fn(), effectAllowed: "" as string };
+      fireEvent.dragStart(grip, { dataTransfer: fakeTransfer });
+      expect(fakeTransfer.setData).toHaveBeenCalledWith(PANEL_MOVE_DND, id);
+    });
+
+    it("drop with PANEL_MOVE_DND calls movePanel and swaps panels", () => {
+      const fromId = cellId(1, 1);
+      const toId = cellId(1, 2);
+      useLayoutStore.getState().setPanel(fromId, "web", { url: "https://from" });
+      // toId is empty initially
+      render(<GridCell cell={cellOf(toId)} />);
+      const toEl = screen.getByTestId(`cell-${toId}`);
+      const fakeTransfer = {
+        getData: (type: string) => (type === PANEL_MOVE_DND ? fromId : ""),
+      };
+      fireEvent.drop(toEl, { dataTransfer: fakeTransfer });
+      // source cell should now be null (was swapped with empty target)
+      expect(cellOf(fromId).panel).toBeNull();
+      // target cell should now have the panel
+      expect(cellOf(toId).panel?.config).toEqual({ url: "https://from" });
+    });
+
+    it("drop with PANEL_MOVE_DND to same cell is a no-op", () => {
+      const id = cellId(1, 1);
+      useLayoutStore.getState().setPanel(id, "web", { url: "https://x" });
+      render(<GridCell cell={cellOf(id)} />);
+      const cellEl = screen.getByTestId(`cell-${id}`);
+      const fakeTransfer = {
+        getData: (type: string) => (type === PANEL_MOVE_DND ? id : ""),
+      };
+      fireEvent.drop(cellEl, { dataTransfer: fakeTransfer });
+      // panel should remain unchanged
+      expect(cellOf(id).panel?.config).toEqual({ url: "https://x" });
+    });
+
   });
 });

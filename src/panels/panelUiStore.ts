@@ -8,22 +8,35 @@ export interface ModalState {
   mode: "create" | "edit";
 }
 
+/** A OS folder drop landed on a cell; waiting for the user to pick File or Terminal. */
+export interface DropMenuState {
+  cellId: string;
+  path: string;     // resolved folder path (supplied by Task 5)
+  x: number;        // viewport CSS coords for positioning the floating menu
+  y: number;
+}
+
 interface PanelUiState {
   /** Cell whose empty-cell type picker is open, if any. */
   pickerCellId: string | null;
   /** Open config modal, if any. */
   modal: ModalState | null;
+  /** Pending OS folder-drop menu, if any. */
+  dropMenu: DropMenuState | null;
 
   openPicker: (cellId: string) => void;
   closePicker: () => void;
   openCreateModal: (cellId: string, kind: PanelKind) => void;
   openEditModal: (cellId: string, kind: PanelKind) => void;
   closeModal: () => void;
+  openDropMenu: (menu: DropMenuState) => void;
+  closeDropMenu: () => void;
 }
 
 export const usePanelUiStore = create<PanelUiState>((set) => ({
   pickerCellId: null,
   modal: null,
+  dropMenu: null,
 
   openPicker: (cellId) => set({ pickerCellId: cellId, modal: null }),
   closePicker: () => set({ pickerCellId: null }),
@@ -32,4 +45,6 @@ export const usePanelUiStore = create<PanelUiState>((set) => ({
   openEditModal: (cellId, kind) =>
     set({ modal: { cellId, kind, mode: "edit" }, pickerCellId: null }),
   closeModal: () => set({ modal: null }),
+  openDropMenu: (menu) => set({ dropMenu: menu, pickerCellId: null, modal: null }),
+  closeDropMenu: () => set({ dropMenu: null }),
 }));

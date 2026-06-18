@@ -194,4 +194,60 @@ describe("panel actions", () => {
     expect(s().selectedIds).toEqual([]);
     expect(destroyed).toEqual(["id-old"]);
   });
+
+  it("movePanel to an empty target moves the panel and leaves source null", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, () => "id-A");
+    destroyed.length = 0;
+    s().movePanel(cellId(1, 1), cellId(2, 1));
+    const src = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    const dst = s().layout.cells.find((c) => c.id === cellId(2, 1))!;
+    expect(dst.panel?.instanceId).toBe("id-A");
+    expect(src.panel).toBeNull();
+    expect(destroyed).toEqual([]);
+  });
+
+  it("movePanel preserves the config of the moved panel", () => {
+    s().setPanel(cellId(1, 1), "web", { url: "https://a" }, () => "id-A");
+    const srcConfigBefore = s().layout.cells.find((c) => c.id === cellId(1, 1))!.panel!.config;
+    destroyed.length = 0;
+    s().movePanel(cellId(1, 1), cellId(2, 1));
+    const dst = s().layout.cells.find((c) => c.id === cellId(2, 1))!;
+    expect(dst.panel?.instanceId).toBe("id-A");
+    expect(dst.panel?.config).toEqual(srcConfigBefore);
+    expect(dst.panel?.config).toEqual({ url: "https://a" });
+  });
+
+  it("movePanel swaps panels when both cells are populated", () => {
+    s().setPanel(cellId(1, 1), "web", { url: "https://a" }, () => "id-A");
+    s().setPanel(cellId(2, 1), "web", { url: "https://b" }, () => "id-B");
+    destroyed.length = 0;
+    s().movePanel(cellId(1, 1), cellId(2, 1));
+    const src = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    const dst = s().layout.cells.find((c) => c.id === cellId(2, 1))!;
+    expect(src.panel?.instanceId).toBe("id-B");
+    expect(src.panel?.config).toEqual({ url: "https://b" });
+    expect(dst.panel?.instanceId).toBe("id-A");
+    expect(dst.panel?.config).toEqual({ url: "https://a" });
+    expect(destroyed).toEqual([]);
+  });
+
+  it("movePanel is a no-op when fromId === toId", () => {
+    s().setPanel(cellId(1, 1), "web", { url: "https://a" }, () => "id-A");
+    destroyed.length = 0;
+    const layoutBefore = s().layout;
+    s().movePanel(cellId(1, 1), cellId(1, 1));
+    expect(s().layout).toBe(layoutBefore);
+    expect(destroyed).toEqual([]);
+  });
+
+  it("movePanel is a no-op when source cell is empty", () => {
+    // cellId(2,1) is empty; cellId(1,1) also starts empty after beforeEach reset
+    s().setPanel(cellId(1, 1), "web", { url: "https://a" }, () => "id-A");
+    destroyed.length = 0;
+    const layoutBefore = s().layout;
+    // cellId(2,1) has no panel — should be a no-op
+    s().movePanel(cellId(2, 1), cellId(1, 1));
+    expect(s().layout).toBe(layoutBefore);
+    expect(destroyed).toEqual([]);
+  });
 });

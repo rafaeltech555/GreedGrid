@@ -5,6 +5,7 @@ import { GridHost } from "./grid/GridHost";
 import { registerAllPanels } from "./panels";
 import { Palette } from "./panels/Palette";
 import { ConfigModal } from "./panels/ConfigModal";
+import { DropMenu } from "./panels/DropMenu";
 
 registerAllPanels();
 
@@ -41,6 +42,7 @@ function App() {
         </main>
       </div>
       <ConfigModal />
+      <DropMenu />
     </div>
   );
 }
