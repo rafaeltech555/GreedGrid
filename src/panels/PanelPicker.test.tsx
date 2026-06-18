@@ -73,4 +73,34 @@ describe("PanelPicker", () => {
     await userEvent.click(killButtons[1]);
     expect(onKill).toHaveBeenCalledWith("id-2");
   });
+
+  it("shows an exited orphan with a dim 'exited' indicator and keeps its row usable", async () => {
+    // An exited session (alive: false) must still appear so the user can view
+    // its final scrollback or kill it. Its status dot is marked "exited".
+    const orphans: SessionInfo[] = [
+      { instanceId: "id-x", shell: "/bin/bash", cwd: "/tmp/done", alive: false, attached: false },
+    ];
+    const onReattach = vi.fn();
+    const onKill = vi.fn();
+    render(
+      <PanelPicker
+        onPick={() => {}}
+        orphans={orphans}
+        onReattach={onReattach}
+        onKill={onKill}
+      />,
+    );
+
+    // Row renders, with the exited (not alive) status indicator.
+    expect(screen.getByText(/bash/)).toBeInTheDocument();
+    expect(screen.getByTitle("exited")).toBeInTheDocument();
+
+    // Reattach (to view final scrollback) still fires.
+    await userEvent.click(screen.getByRole("button", { name: /Reattach/ }));
+    expect(onReattach).toHaveBeenCalledWith(orphans[0]);
+
+    // Kill still fires.
+    await userEvent.click(screen.getByRole("button", { name: /Kill session/ }));
+    expect(onKill).toHaveBeenCalledWith("id-x");
+  });
 });

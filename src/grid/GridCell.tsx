@@ -38,13 +38,16 @@ export function GridCell({ cell }: GridCellProps) {
   // Detached pty sessions offered for reattach while this cell's picker is open.
   const [orphans, setOrphans] = useState<SessionInfo[]>([]);
 
-  // Sessions that are alive, unattached, and not already placed in the layout.
+  // Orphans = sessions that are detached (not attached) and not currently placed
+  // in the layout — including exited sessions, which keep their scrollback so the
+  // user can reattach to view final output or kill them. The `alive` flag only
+  // drives PanelPicker's visual dot, not visibility.
   const computeOrphans = (sessions: SessionInfo[]): SessionInfo[] => {
     const placed = new Set<string>();
     for (const c of cells) {
       if (c.panel) placed.add(c.panel.instanceId);
     }
-    return sessions.filter((s) => s.alive && !s.attached && !placed.has(s.instanceId));
+    return sessions.filter((s) => !s.attached && !placed.has(s.instanceId));
   };
 
   useEffect(() => {
