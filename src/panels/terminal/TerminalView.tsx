@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Channel } from "@tauri-apps/api/core";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import "@xterm/xterm/css/xterm.css";
 import type { ConfigFormProps, PanelViewProps } from "../types";
 import type { TermConfig } from "./types";
@@ -23,6 +24,30 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
     term.loadAddon(fit);
     term.open(host);
     fit.fit();
+
+    // Clipboard shortcuts. xterm.js has no built-in clipboard keybindings, and a
+    // bare Ctrl+C must stay SIGINT, so we wire the GNOME-style Ctrl+Shift+C/V
+    // explicitly through the Tauri clipboard plugin. Returning false consumes the
+    // event so it is never forwarded to the pty as input.
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== "keydown" || !e.ctrlKey || !e.shiftKey) return true;
+      if (e.code === "KeyC") {
+        const sel = term.getSelection();
+        if (sel) void writeText(sel).catch(() => {});
+        return false;
+      }
+      if (e.code === "KeyV") {
+        // Suppress WebKitGTK's own paste-on-Ctrl+Shift+V so we don't double-paste.
+        e.preventDefault();
+        void readText()
+          .then((text) => {
+            if (text) term.paste(text);
+          })
+          .catch(() => {});
+        return false;
+      }
+      return true;
+    });
 
     // Route pty output → xterm. Bytes arrive as a number[] (Rust Vec<u8>).
     const channel = new Channel<Uint8Array>();
