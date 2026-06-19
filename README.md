@@ -46,7 +46,7 @@ GreedGrid is a **Tauri v2** desktop application that turns one window into a res
 
 > **Note (M2):** The Web/URL panel shipped as iframe-first. A native-webview fallback (for sites that refuse framing via X-Frame-Options/CSP) is deferred to a later phase — it will be the first Rust-side panel work.
 
-> **Note (M3/M3b):** Panel removal calls `term_detach`, keeping the pty alive — it is **not** killed. An explicit **Kill ✕** action (via the PanelPicker or `term_close` command) is required to destroy a session. Exited sessions are also retained so their scrollback can be reviewed or the session killed cleanly. The same-run reconnect path is covered by a Rust integration test.
+> **Note (M3/M3b):** Panel removal calls `term_detach`, keeping the pty alive — it is **not** killed. An explicit **Kill ✕** action (via the PanelPicker or `term_close` command) is required to destroy a session. Exited sessions are also retained so their scrollback can be reviewed or the session killed cleanly. The same-run reconnect path is covered by a Rust integration test. The pty is spawned with `TERM=xterm-256color` and `COLORTERM=truecolor` explicitly set on the `CommandBuilder`, so colour-aware tools (bash prompt, `ls`, `vim`, `git`) work correctly whether GreedGrid is launched from a terminal or a desktop icon (where the GUI process would otherwise have no `TERM`).
 
 > **Note (M4):** Per-core CPU breakdown, network/disk I/O, process list, temperature sensors, history persistence, and alert thresholds are deferred to future milestones.
 

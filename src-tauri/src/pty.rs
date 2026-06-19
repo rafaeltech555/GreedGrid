@@ -139,6 +139,13 @@ impl PtyRegistry {
         if let Some(cwd) = &opts.cwd {
             cmd.cwd(cwd);
         }
+        // Native terminals set TERM/COLORTERM for the child shell; when greedgrid is
+        // launched from a desktop icon the GUI process has no TERM, so the child
+        // would otherwise inherit an empty $TERM and colour-aware tools (bash
+        // prompt, git, less, vim, tput) disable colour. Set them explicitly so
+        // colour behaviour is consistent regardless of how the app was started.
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
         let child = pair
             .slave
             .spawn_command(cmd)
@@ -419,6 +426,38 @@ mod tests {
         assert!(
             reg.write("t2", b"x").is_ok(),
             "write after detach must succeed (session still alive)"
+        );
+    }
+
+    #[test]
+    fn spawn_sets_term_for_colour_support() {
+        // Reproduce the GUI-launch condition: when greedgrid is started from a
+        // desktop icon the parent process has no TERM/COLORTERM, so plain
+        // inheritance yields an empty $TERM. Clear them here so the test only
+        // passes if the engine sets them explicitly on the child. (CommandBuilder
+        // snapshots the parent env at spawn, so clearing before `open` is what the
+        // child sees absent an explicit override.)
+        std::env::remove_var("TERM");
+        std::env::remove_var("COLORTERM");
+
+        let reg = PtyRegistry::default();
+
+        let sink = Arc::new(VecSink::default());
+        reg.open("t_term", opts(), sink.clone()).unwrap();
+        // Wrap the values in markers so we match the echoed value, not the command
+        // we just typed (which the pty echoes back verbatim).
+        reg.write(
+            "t_term",
+            b"printf 'TERMVAL[%s]COLORVAL[%s]' \"$TERM\" \"$COLORTERM\"\n",
+        )
+        .unwrap();
+        assert!(
+            wait_for(&sink, b"TERMVAL[xterm-256color]"),
+            "spawned shell must get TERM=xterm-256color so colour-aware tools enable colour"
+        );
+        assert!(
+            wait_for(&sink, b"COLORVAL[truecolor]"),
+            "spawned shell must get COLORTERM=truecolor for 24-bit colour"
         );
     }
 
