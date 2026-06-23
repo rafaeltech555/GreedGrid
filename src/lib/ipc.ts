@@ -129,3 +129,40 @@ export function wsList(): Promise<string[]> {
 export function wsDelete(name: string): Promise<void> {
   return invoke<void>("ws_delete", { name });
 }
+
+// --- Web panel (native child webview) ---------------------------------------
+// Each web panel owns a child Tauri webview keyed by its panel instanceId; the
+// frontend feeds it the cell's viewport rect (CSS px) for positioning.
+
+/** Viewport rectangle (CSS px) a child webview should occupy. */
+export interface WebRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Create the child webview if absent, else navigate it to `url` in place. */
+export function webUpsert(instanceId: string, url: string, rect: WebRect): Promise<void> {
+  return invoke<void>("web_upsert", { instanceId, url, ...rect });
+}
+
+/** Reposition / resize the child webview to `rect`. */
+export function webSetBounds(instanceId: string, rect: WebRect): Promise<void> {
+  return invoke<void>("web_set_bounds", { instanceId, ...rect });
+}
+
+/** Show or hide the child webview (used while resizing or behind overlays). */
+export function webSetVisible(instanceId: string, visible: boolean): Promise<void> {
+  return invoke<void>("web_set_visible", { instanceId, visible });
+}
+
+/** Reload the child webview's current page. */
+export function webReload(instanceId: string): Promise<void> {
+  return invoke<void>("web_reload", { instanceId });
+}
+
+/** Close and drop the child webview. */
+export function webClose(instanceId: string): Promise<void> {
+  return invoke<void>("web_close", { instanceId });
+}
