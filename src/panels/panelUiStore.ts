@@ -23,6 +23,8 @@ interface PanelUiState {
   modal: ModalState | null;
   /** Pending OS folder-drop menu, if any. */
   dropMenu: DropMenuState | null;
+  /** Whether the toolbar's workspace "Load" dropdown is open (a grid overlay). */
+  workspaceMenuOpen: boolean;
 
   openPicker: (cellId: string) => void;
   closePicker: () => void;
@@ -31,12 +33,14 @@ interface PanelUiState {
   closeModal: () => void;
   openDropMenu: (menu: DropMenuState) => void;
   closeDropMenu: () => void;
+  setWorkspaceMenuOpen: (open: boolean) => void;
 }
 
 export const usePanelUiStore = create<PanelUiState>((set) => ({
   pickerCellId: null,
   modal: null,
   dropMenu: null,
+  workspaceMenuOpen: false,
 
   openPicker: (cellId) => set({ pickerCellId: cellId, modal: null }),
   closePicker: () => set({ pickerCellId: null }),
@@ -47,4 +51,5 @@ export const usePanelUiStore = create<PanelUiState>((set) => ({
   closeModal: () => set({ modal: null }),
   openDropMenu: (menu) => set({ dropMenu: menu, pickerCellId: null, modal: null }),
   closeDropMenu: () => set({ dropMenu: null }),
+  setWorkspaceMenuOpen: (open) => set({ workspaceMenuOpen: open }),
 }));

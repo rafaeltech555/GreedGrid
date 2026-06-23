@@ -30,6 +30,14 @@ describe("panelUiStore", () => {
     expect(u().modal).toBeNull();
   });
 
+  it("tracks workspace menu open state", () => {
+    usePanelUiStore.setState({ workspaceMenuOpen: false });
+    usePanelUiStore.getState().setWorkspaceMenuOpen(true);
+    expect(usePanelUiStore.getState().workspaceMenuOpen).toBe(true);
+    usePanelUiStore.getState().setWorkspaceMenuOpen(false);
+    expect(usePanelUiStore.getState().workspaceMenuOpen).toBe(false);
+  });
+
   describe("dropMenu", () => {
     const menu = { cellId: "c1-r1", path: "/home/user/projects", x: 120, y: 80 };
 

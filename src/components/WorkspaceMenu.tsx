@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { isTauri, wsDelete, wsList, wsLoad, wsSave } from "../lib/ipc";
 import { useLayoutStore } from "../store/layoutStore";
+import { usePanelUiStore } from "../panels/panelUiStore";
 import type { GridLayout } from "../lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -11,7 +12,8 @@ import { ConfirmDialog } from "./ConfirmDialog";
 export function WorkspaceMenu() {
   const loadLayout = useLayoutStore((s) => s.loadLayout);
   const [names, setNames] = useState<string[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpen = usePanelUiStore((s) => s.workspaceMenuOpen);
+  const setMenuOpen = usePanelUiStore((s) => s.setWorkspaceMenuOpen);
   const [saving, setSaving] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -27,7 +29,7 @@ export function WorkspaceMenu() {
 
   const toggleMenu = () => {
     if (!menuOpen) refresh(); // refresh on open
-    setMenuOpen((o) => !o);
+    setMenuOpen(!menuOpen);
   };
 
   const doSave = () => {
