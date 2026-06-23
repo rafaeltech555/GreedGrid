@@ -26,5 +26,11 @@ export interface PanelTypeDef {
   ready: (config: Record<string, unknown>) => boolean;
   ConfigForm: (props: ConfigFormProps) => ReactNode;
   View: (props: PanelViewProps) => ReactNode;
+  /**
+   * When true, the panel's own View renders its window chrome (title bar +
+   * controls), so the host (GridCell) skips its hover ⚙/✕/⠿ overlay. Used by
+   * the web panel, whose native webview would float over the host overlay.
+   */
+  selfChrome?: boolean;
   onDestroy?: (instanceId: string, config: Record<string, unknown>) => void;
 }

@@ -19,6 +19,13 @@ const fakeDef = (kind: PanelTypeDef["kind"]): PanelTypeDef => ({
 
 afterEach(() => __clearRegistry());
 
+import { webPanel } from "./web";
+
+it("web panel declares selfChrome (renders its own controls)", () => {
+  registerPanel(webPanel);
+  expect(getPanelType("web")?.selfChrome).toBe(true);
+});
+
 describe("panel registry", () => {
   it("registers and looks up by kind", () => {
     registerPanel(fakeDef("web"));

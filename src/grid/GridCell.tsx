@@ -150,37 +150,39 @@ export function GridCell({ cell }: GridCellProps) {
       {cell.panel && panelDef ? (
         <>
           <panelDef.View instanceId={cell.panel.instanceId} config={cell.panel.config} />
-          <div className={`absolute right-1 top-1 gap-1 group-hover:flex group-focus-within:flex ${dragging ? "flex" : "hidden"}`}>
-            <button
-              type="button"
-              aria-label="Move panel"
-              title="Drag to move this panel"
-              draggable
-              onDragStart={(e) => {
-                setDragging(true);
-                e.dataTransfer.setData(PANEL_MOVE_DND, cell.id);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragEnd={() => setDragging(false)}
-              className="cursor-grab rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white active:cursor-grabbing"
-            >
-              ⠿
-            </button>
-            <button
-              aria-label="Panel settings"
-              onClick={() => openEditModal(cell.id, cell.panel!.kind)}
-              className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"
-            >
-              ⚙
-            </button>
-            <button
-              aria-label="Remove panel"
-              onClick={() => clearPanel(cell.id)}
-              className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
+          {!panelDef.selfChrome && (
+            <div className={`absolute right-1 top-1 gap-1 group-hover:flex group-focus-within:flex ${dragging ? "flex" : "hidden"}`}>
+              <button
+                type="button"
+                aria-label="Move panel"
+                title="Drag to move this panel"
+                draggable
+                onDragStart={(e) => {
+                  setDragging(true);
+                  e.dataTransfer.setData(PANEL_MOVE_DND, cell.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragEnd={() => setDragging(false)}
+                className="cursor-grab rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white active:cursor-grabbing"
+              >
+                ⠿
+              </button>
+              <button
+                aria-label="Panel settings"
+                onClick={() => openEditModal(cell.id, cell.panel!.kind)}
+                className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"
+              >
+                ⚙
+              </button>
+              <button
+                aria-label="Remove panel"
+                onClick={() => clearPanel(cell.id)}
+                className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </>
       ) : pickerOpen ? (
         <PanelPicker

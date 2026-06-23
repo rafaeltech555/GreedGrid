@@ -10,4 +10,5 @@ export const webPanel: PanelTypeDef = {
   ready: webReady,
   ConfigForm: WebConfigForm,
   View: WebView,
+  selfChrome: true,
 };

@@ -227,6 +227,46 @@ describe("GridCell", () => {
     });
   });
 
+  describe("selfChrome panels", () => {
+    // A web def that declares selfChrome and renders its own chrome bar
+    // (including a "Remove panel" button) — just like the real web panel will.
+    const webSelfChromeDef: PanelTypeDef = {
+      kind: "web",
+      label: "Web",
+      glyph: "🌐",
+      defaultConfig: () => ({ url: "" }),
+      ready: (c) => typeof c.url === "string" && c.url.trim().length > 0,
+      ConfigForm: () => null,
+      selfChrome: true,
+      View: () => (
+        <div data-testid="web-self-chrome-view">
+          {/* simulates the native chrome bar that the web panel will provide */}
+          <button aria-label="Remove panel">✕</button>
+        </div>
+      ),
+    };
+
+    beforeEach(() => {
+      // Override the registry entry for "web" with the selfChrome version.
+      registerPanel(webSelfChromeDef);
+    });
+
+    it("hides host hover controls for selfChrome panels (web)", () => {
+      useLayoutStore.getState().setPanel(cellId(1, 1), "web", { url: "https://x" });
+      render(<GridCell cell={cellOf(cellId(1, 1))} />);
+      // The web View renders exactly 1 "Remove panel" button (its own chrome).
+      // The host overlay must NOT render a second one.
+      expect(screen.getAllByLabelText("Remove panel")).toHaveLength(1);
+    });
+
+    it("shows host hover controls for normal panels (file)", () => {
+      useLayoutStore.getState().setPanel(cellId(1, 2), "file", {});
+      render(<GridCell cell={cellOf(cellId(1, 2))} />);
+      // file panel has no selfChrome, so the host overlay renders the button.
+      expect(screen.getByLabelText("Remove panel")).toBeInTheDocument();
+    });
+  });
+
   describe("placeKind — file/terminal use native folder picker", () => {
     it("picking Files with a selected dir sets panel with { path }", async () => {
       const id = cellId(1, 1);
