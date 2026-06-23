@@ -11,6 +11,9 @@ pub enum AppError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("tauri error: {0}")]
+    Tauri(#[from] tauri::Error),
+
     #[error("{0}")]
     Other(String),
 }

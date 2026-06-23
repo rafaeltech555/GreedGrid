@@ -6,6 +6,7 @@
 pub mod fs;
 pub mod pty;
 pub mod sysmon;
+pub mod web;
 pub mod workspace;
 
 use serde::Serialize;

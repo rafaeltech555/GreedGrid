@@ -32,6 +32,11 @@ pub fn run() {
             commands::workspace::ws_load,
             commands::workspace::ws_list,
             commands::workspace::ws_delete,
+            commands::web::web_upsert,
+            commands::web::web_set_bounds,
+            commands::web::web_set_visible,
+            commands::web::web_reload,
+            commands::web::web_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
