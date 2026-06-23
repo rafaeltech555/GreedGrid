@@ -15,6 +15,14 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(PtyRegistry::default())
         .manage(Sampler::start())
+        .setup(|app| {
+            // Install the gtk::Fixed overlay that hosts web-panel webviews.
+            let handle = app.handle().clone();
+            if let Err(e) = commands::web::init_overlay(&handle) {
+                eprintln!("web overlay init failed: {e}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::pty::term_open,

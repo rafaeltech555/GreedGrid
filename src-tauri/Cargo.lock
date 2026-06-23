@@ -1446,6 +1446,7 @@ dependencies = [
 name = "greedgrid"
 version = "0.1.0"
 dependencies = [
+ "gtk",
  "portable-pty",
  "serde",
  "serde_json",
@@ -1456,6 +1457,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "thiserror 2.0.18",
+ "wry",
 ]
 
 [[package]]
