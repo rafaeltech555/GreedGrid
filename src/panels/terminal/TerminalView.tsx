@@ -59,10 +59,42 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
     const cfg = config as TermConfig;
     void termOpen(instanceId, cfg, term.cols, term.rows, channel);
 
+    const send = (s: string) =>
+      termWrite(instanceId, new TextEncoder().encode(s));
+
     // Keystrokes → pty.
-    const dataSub = term.onData((data) =>
-      termWrite(instanceId, new TextEncoder().encode(data)),
-    );
+    const dataSub = term.onData((data) => send(data));
+
+    // IME input fix for WebKitGTK + fcitx (Linux). On this webview an IME commit
+    // arrives as a keydown(keyCode 229) plus an `input` event of inputType
+    // "insertFromComposition", but compositionstart/compositionupdate never fire.
+    // xterm's CompositionHelper assumes that sequence, so its compositionPosition
+    // offsets go stale and it re-emits duplicated/garbled slices of each commit
+    // (typing "claude" produced "cllalaulaude…", and CJK phrases duplicated their
+    // tails). We take over composition on the host element — a capture-phase
+    // listener here runs before xterm's own textarea listeners, so stopPropagation
+    // prevents the event from ever reaching xterm. The committed text is sent once
+    // from the `input` event; non-IME keys are untouched and flow through xterm
+    // (and onData) as usual. The terminal does not need on-screen IME preedit, so
+    // suppressing xterm's composition handling costs nothing here.
+    const onHostKeydown = (e: Event) => {
+      if ((e as KeyboardEvent).keyCode === 229) e.stopPropagation();
+    };
+    const swallowComposition = (e: Event) => e.stopPropagation();
+    const onHostInput = (e: Event) => {
+      const ie = e as InputEvent;
+      if (ie.inputType === "insertFromComposition" || ie.isComposing) {
+        if (ie.data) send(ie.data);
+        e.stopPropagation();
+        // Keep xterm's hidden textarea empty so any stray bookkeeping stays sane.
+        if (term.textarea) term.textarea.value = "";
+      }
+    };
+    host.addEventListener("keydown", onHostKeydown, true);
+    host.addEventListener("compositionstart", swallowComposition, true);
+    host.addEventListener("compositionupdate", swallowComposition, true);
+    host.addEventListener("compositionend", swallowComposition, true);
+    host.addEventListener("input", onHostInput, true);
 
     // Resize → fit + notify pty.
     const observer = new ResizeObserver(() => {
@@ -79,6 +111,11 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
       detached = true; // stop writing late channel messages into a disposed term
       observer.disconnect();
       dataSub.dispose();
+      host.removeEventListener("keydown", onHostKeydown, true);
+      host.removeEventListener("compositionstart", swallowComposition, true);
+      host.removeEventListener("compositionupdate", swallowComposition, true);
+      host.removeEventListener("compositionend", swallowComposition, true);
+      host.removeEventListener("input", onHostInput, true);
       term.dispose();
       // NOTE: intentionally NOT calling termClose — the pty survives unmount and
       // reconnects (replaying scrollback) when this instanceId remounts.
