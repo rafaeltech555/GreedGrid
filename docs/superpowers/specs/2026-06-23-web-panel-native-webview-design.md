@@ -60,16 +60,16 @@
 
 #### 初始化（`init_overlay`）
 
-app setup 時取得主視窗的底層 `gtk::Window`，把它的直接 child（Tauri 預設的 `GtkBox`，即 `default_vbox`）**換成** `gtk::Overlay`：
+app setup 時取得主視窗的底層 `gtk::Window`，把它的直接 child（Tauri 預設的 `GtkBox`，即 `default_vbox`）裡的主 webview 取出，再用一個 `gtk::Overlay` **取代** vbox 當視窗的直接 child：
 
-- Overlay 的 **base child**：一個 `gtk::Fixed`（佔滿視窗），wry webview 建在此 Fixed 上。
-- Overlay 的 **overlay child**：另一個 `gtk::Fixed`，供 React UI 層使用，設定 `set_overlay_pass_through(true)` 讓空白處的滑鼠事件穿透到 React UI（DOM），只有 webview 實際覆蓋的區域才攔截事件。
+- Overlay 的 **base child**：主 React webview（即 Tauri 原本的 webview），自動填滿 Overlay。
+- Overlay 的 **overlay child**：一個 `gtk::Fixed`（`halign/valign = Fill`，鋪滿視窗），web panel 的 wry webview 都建在此 Fixed 上、用座標定位。對此 Fixed 設定 `set_overlay_pass_through(true)`，讓空白處的滑鼠事件穿透到底層的主 webview（React UI／DOM），只有 web panel webview 實際覆蓋的區域才攔截事件。
 
-此架構確保 webview 維持在 `gtk::Window` 下兩層（`window → overlay → fixed → webview`），不破壞 Tauri undecorated-resizing handler 的假設（坑 2）。
+此架構確保主 webview 維持在 `gtk::Window` 下兩層（`window → overlay → webview`，base child 不額外加層），不破壞 Tauri undecorated-resizing handler 的 `webview.parent().parent() == gtk::Window` 假設（坑 2）。
 
 #### GTK 物件的執行緒管理
 
-`gtk::Fixed`、`wry::WebView` 等 GTK 物件為 `!Send`，無法跨執行緒傳遞。所有物件存放在 **`thread_local!` registry**（`gtk::Fixed` 的引用 + `HashMap<instanceId, Entry{ view: wry::WebView, url: String }>`）。每個 Tauri 指令透過 `AppHandle::run_on_main_thread(...)` 把操作派到主執行緒（GTK main loop 所在執行緒）執行，再將結果以 `oneshot channel` 傳回指令執行緒。
+`gtk::Fixed`、`wry::WebView` 等 GTK 物件為 `!Send`，無法跨執行緒傳遞。所有物件存放在 **`thread_local!` registry**（`gtk::Fixed` + `HashMap<instanceId, Entry{ view: wry::WebView, url: String }>`），於 setup（主執行緒）初始化。每個 Tauri 指令把只含 `Send` 資料（instanceId、url、座標、bool）的 closure 透過 `AppHandle::run_on_main_thread(...)` 派到主執行緒（GTK main loop 所在執行緒）執行——closure 在主執行緒存取 thread_local registry。指令本身 fire-and-forget（不等回傳值），錯誤於主執行緒以 `eprintln!` 記錄。
 
 #### 指令一覽（前端 IPC 契約不變）
 
@@ -79,11 +79,11 @@ app setup 時取得主視窗的底層 `gtk::Window`，把它的直接 child（Ta
 |---|---|
 | `web_upsert(instanceId, url, x, y, width, height)` | 不存在 → 以 `WebViewBuilder::new().with_url().with_bounds().build_gtk(&fixed)` 建立 wry webview；已存在 → 對既有 view 呼叫 `load_url` 導覽到新 url。 |
 | `web_set_bounds(instanceId, x, y, width, height)` | 呼叫自訂 `place()`：`fixed.move_() + widget.set_size_request() + widget.size_allocate() + widget.queue_resize()`，確保定位在 GTK relayout 後持久（坑 3 的解法）。 |
-| `web_set_visible(instanceId, visible)` | `widget.show()` / `widget.hide()`。 |
-| `web_reload(instanceId)` | 重新載入目前頁面。 |
-| `web_close(instanceId)` | 從 registry 移除 entry，drop wry webview，並從 Fixed 移除 widget。 |
+| `web_set_visible(instanceId, visible)` | `wry::WebView::set_visible(visible)`。 |
+| `web_reload(instanceId)` | 對既有 view `load_url` 重新載入記錄的 url。 |
+| `web_close(instanceId)` | 從 registry 移除 entry，drop wry webview（一併從 Fixed 移除 widget）。 |
 
-座標對齊原理：Overlay base child（Fixed）鋪滿視窗 client area，故前端 `getBoundingClientRect()` 的視窗座標即等於 webview 在 Fixed 內的定位座標。
+座標對齊原理：overlay 層的 `gtk::Fixed` 鋪滿視窗 client area（與底層主 webview 同範圍），故前端 `getBoundingClientRect()` 的視窗座標即等於 webview 在 Fixed 內的定位座標。
 
 #### `Cargo.toml` 依賴（Linux-only）
 

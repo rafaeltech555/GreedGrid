@@ -239,7 +239,7 @@ git commit -m "feat(web): native child webview backend commands (web_upsert/boun
 3. wry `set_bounds`（底層用 `size_allocate`）在 GtkFixed 裡被 GTK relayout 還原，定位無法持久。
 
 最終實作改採 **raw wry + gtk::Overlay** 架構（`wry = "0.55"`, `gtk = "0.18"`，Linux-only deps）：
-- setup 時 `init_overlay`：把主視窗的 default_vbox **換成** `gtk::Overlay`，base child 為 `gtk::Fixed`（放 wry webview），overlay child 為另一個 `gtk::Fixed`（`pass_through=true`，放 React UI）。
+- setup 時 `init_overlay`：把主視窗的 default_vbox **換成** `gtk::Overlay`，base child 為主 React webview，overlay child 為一個 `gtk::Fixed`（`pass_through=true`，放 wry webview，空白處點擊穿透到底層 React UI）。
 - `!Send` 的 GTK/wry 物件存在 `thread_local!` registry，透過 `AppHandle::run_on_main_thread` 派到 GTK main loop 執行。
 - 定位用自訂 `place()`（`fixed.move_() + set_size_request + size_allocate + queue_resize`）解決坑 3。
 - 5 個指令簽名與前端 IPC 契約**完全不變**；`Cargo.toml` 移除 `unstable` feature。
