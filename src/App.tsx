@@ -3,7 +3,6 @@ import { isTauri, ping } from "./lib/ipc";
 import { Toolbar } from "./components/Toolbar";
 import { GridHost } from "./grid/GridHost";
 import { registerAllPanels } from "./panels";
-import { Palette } from "./panels/Palette";
 import { ConfigModal } from "./panels/ConfigModal";
 import { DropMenu } from "./panels/DropMenu";
 
@@ -36,7 +35,6 @@ function App() {
       <Toolbar />
 
       <div className="flex flex-1 overflow-hidden">
-        <Palette />
         <main className="flex-1 p-1">
           <GridHost />
         </main>
