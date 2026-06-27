@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 vi.mock("@tauri-apps/api/core", () => ({
@@ -8,7 +8,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openPath: vi.fn() }));
 
-import { webUpsert, webSetBounds, webSetVisible, webReload, webClose } from "./ipc";
+import { open } from "@tauri-apps/plugin-dialog";
+import { pickFiles, webUpsert, webSetBounds, webSetVisible, webReload, webClose } from "./ipc";
+
+const openMock = vi.mocked(open);
 
 describe("web panel ipc", () => {
   beforeEach(() => invoke.mockClear());
@@ -49,5 +52,40 @@ describe("web panel ipc", () => {
     webClose("id1");
     expect(invoke).toHaveBeenCalledWith("web_reload", { instanceId: "id1" });
     expect(invoke).toHaveBeenCalledWith("web_close", { instanceId: "id1" });
+  });
+});
+
+describe("pickFiles", () => {
+  beforeEach(() => openMock.mockReset());
+
+  it("returns [] when not running inside Tauri", async () => {
+    // jsdom's window lacks __TAURI_INTERNALS__, so isTauri() is false here.
+    await expect(pickFiles()).resolves.toEqual([]);
+    expect(openMock).not.toHaveBeenCalled();
+  });
+
+  describe("inside Tauri", () => {
+    beforeEach(() => {
+      (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+    });
+    afterEach(() => {
+      delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+    });
+
+    it("wraps a single string result into a one-element array", async () => {
+      openMock.mockResolvedValueOnce("/home/u/a.png");
+      await expect(pickFiles()).resolves.toEqual(["/home/u/a.png"]);
+      expect(openMock).toHaveBeenCalledWith({ directory: false, multiple: true });
+    });
+
+    it("returns an array result unchanged", async () => {
+      openMock.mockResolvedValueOnce(["/home/u/a.png", "/home/u/b.jpg"]);
+      await expect(pickFiles()).resolves.toEqual(["/home/u/a.png", "/home/u/b.jpg"]);
+    });
+
+    it("returns [] when the user cancels (null)", async () => {
+      openMock.mockResolvedValueOnce(null);
+      await expect(pickFiles()).resolves.toEqual([]);
+    });
   });
 });

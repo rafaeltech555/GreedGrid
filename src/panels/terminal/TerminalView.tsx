@@ -6,13 +6,34 @@ import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import "@xterm/xterm/css/xterm.css";
 import type { ConfigFormProps, PanelViewProps } from "../types";
 import type { TermConfig } from "./types";
-import { isTauri, termOpen, termResize, termWrite } from "../../lib/ipc";
+import { isTauri, pickFiles, termOpen, termResize, termWrite } from "../../lib/ipc";
+
+/** POSIX single-quote a path so spaces/specials survive the shell verbatim. */
+function shellQuote(p: string): string {
+  return `'${p.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Open a native file picker and paste the chosen path(s), shell-quoted, into
+ *  the pty — lets the user feed an image/file to a CLI running in the terminal
+ *  (e.g. Claude Code). Shared by the Ctrl+Shift+O keybind and the toolbar button.
+ *  Native drag-drop into WebKitGTK webviews is broken upstream, so this dialog
+ *  path is the reliable way in on Linux. */
+function insertPickedFiles(term: Terminal): void {
+  void pickFiles()
+    .then((paths) => {
+      if (paths.length === 0) return;
+      term.paste(paths.map(shellQuote).join(" ") + " ");
+      term.focus();
+    })
+    .catch(() => {});
+}
 
 /** Live view: an xterm.js terminal bound to a backend pty via a Tauri Channel.
  *  The pty outlives this component (keyed by instanceId); unmount detaches the
  *  output channel but never calls term_close — that is the panel's onDestroy. */
 export function TerminalView({ instanceId, config }: PanelViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
 
   useEffect(() => {
     if (!isTauri()) return; // no backend in a plain browser; see placeholder below
@@ -24,6 +45,7 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
     term.loadAddon(fit);
     term.open(host);
     fit.fit();
+    termRef.current = term; // expose to the toolbar 📎 button (see JSX below)
 
     // Clipboard shortcuts. xterm.js has no built-in clipboard keybindings, and a
     // bare Ctrl+C must stay SIGINT, so we wire the GNOME-style Ctrl+Shift+C/V
@@ -44,6 +66,13 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
             if (text) term.paste(text);
           })
           .catch(() => {});
+        return false;
+      }
+      if (e.code === "KeyO") {
+        // Insert OS file path(s) into the pty (see insertPickedFiles). Mirrors the
+        // toolbar 📎 button so keyboard and mouse share one code path.
+        e.preventDefault();
+        insertPickedFiles(term);
         return false;
       }
       return true;
@@ -117,6 +146,7 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
       host.removeEventListener("compositionend", swallowComposition, true);
       host.removeEventListener("input", onHostInput, true);
       term.dispose();
+      termRef.current = null;
       // NOTE: intentionally NOT calling termClose — the pty survives unmount and
       // reconnects (replaying scrollback) when this instanceId remounts.
     };
@@ -130,7 +160,23 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
     );
   }
 
-  return <div ref={hostRef} className="h-full w-full bg-black" />;
+  return (
+    <div className="relative h-full w-full bg-black">
+      <div ref={hostRef} className="h-full w-full" />
+      <button
+        type="button"
+        aria-label="插入檔案路徑 (Ctrl+Shift+O)"
+        title="插入檔案路徑 (Ctrl+Shift+O)"
+        onClick={() => {
+          const t = termRef.current;
+          if (t) insertPickedFiles(t);
+        }}
+        className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/40 hover:text-white"
+      >
+        📎
+      </button>
+    </div>
+  );
 }
 
 /** Config form: optional shell + working directory overrides. */

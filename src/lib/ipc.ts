@@ -83,6 +83,15 @@ export async function pickFolder(): Promise<string | null> {
   return typeof res === "string" ? res : null;
 }
 
+/** Open a native file picker (multi-select); returns the chosen absolute paths,
+ *  or [] if the user cancelled or we are not inside Tauri. */
+export async function pickFiles(): Promise<string[]> {
+  if (!isTauri()) return [];
+  const res = await open({ directory: false, multiple: true });
+  if (res == null) return [];
+  return Array.isArray(res) ? res : [res];
+}
+
 /** List a directory (empty path → backend uses $HOME); returns the canonical
  *  path actually listed plus its entries. */
 export function fsList(path?: string): Promise<ListResult> {
