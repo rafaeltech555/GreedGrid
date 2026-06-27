@@ -1,4 +1,4 @@
-import type { Cell, GridLayout } from "../lib/types";
+import type { Cell, GridLayout, PanelConfig } from "../lib/types";
 import { cellId } from "./cellId";
 
 /** Bounding box of a set of cells, in 1-based inclusive track coordinates. */
@@ -85,20 +85,37 @@ export function canMerge(layout: GridLayout, ids: string[]): boolean {
 }
 
 /**
- * Merge a rectangular selection into one spanning cell at the box's top-left.
- * The top-left cell's panel is preserved; the rest are discarded. Tracks are not
- * removed — the merged cell simply spans them. Throws if the selection is not a
- * clean rectangle (guard with `canMerge`).
+ * The non-null panels of the selected cells, in reading order (row then col).
+ * Stable, so callers can show/keep a deterministic list. The geometry of the
+ * selection is independent of this — it only answers "which panels are here".
  */
-export function mergeCells(layout: GridLayout, ids: string[]): GridLayout {
+export function panelsInSelection(
+  layout: GridLayout,
+  ids: string[],
+): PanelConfig[] {
+  return resolve(layout, ids)
+    .filter((c) => c.panel !== null)
+    .sort((a, b) => a.row - b.row || a.col - b.col)
+    .map((c) => c.panel!);
+}
+
+/**
+ * Merge a rectangular selection into one spanning cell at the box's top-left.
+ * The merged cell's panel is set to `keep` (the caller decides which of the
+ * selection's panels — if any — survives; pass null for an empty merged cell).
+ * Tracks are not removed — the merged cell simply spans them. Throws if the
+ * selection is not a clean rectangle (guard with `canMerge`).
+ */
+export function mergeCells(
+  layout: GridLayout,
+  ids: string[],
+  keep: PanelConfig | null,
+): GridLayout {
   if (!canMerge(layout, ids)) {
     throw new Error("selection is not a mergeable rectangle");
   }
   const sel = resolve(layout, ids);
   const box = bbox(sel);
-  const topLeft = sel.find(
-    (c) => c.col === box.minCol && c.row === box.minRow,
-  )!;
 
   const merged: Cell = {
     id: cellId(box.minCol, box.minRow),
@@ -106,7 +123,7 @@ export function mergeCells(layout: GridLayout, ids: string[]): GridLayout {
     row: box.minRow,
     colSpan: box.maxCol - box.minCol + 1,
     rowSpan: box.maxRow - box.minRow + 1,
-    panel: topLeft.panel,
+    panel: keep,
   };
 
   const idSet = new Set(ids);

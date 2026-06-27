@@ -171,18 +171,51 @@ describe("panel actions", () => {
     expect(destroyed).toEqual(["id-1"]);
   });
 
-  it("mergeSelected fires onDestroy for panels in absorbed cells", () => {
-    // place panels in two adjacent cells, then merge them
-    s().setPanel(cellId(1, 1), "web", undefined, () => "id-keep");
-    s().setPanel(cellId(2, 1), "web", undefined, () => "id-absorbed");
+  it("merging an empty + a populated cell keeps the lone panel, destroys nothing", () => {
+    // only the *right* cell has a panel; the top-left is empty
+    s().setPanel(cellId(2, 1), "web", undefined, () => "id-lone");
     destroyed.length = 0; // ignore any destroys from placement
-    [cellId(1, 1), cellId(2, 1), cellId(1, 2), cellId(2, 2)].forEach((id) =>
-      s().toggleSelect(id),
-    );
-    s().mergeSelected();
-    // top-left panel (id-keep) survives in the merged cell; id-absorbed is destroyed
-    expect(destroyed).toContain("id-absorbed");
-    expect(destroyed).not.toContain("id-keep");
+    [cellId(1, 1), cellId(2, 1)].forEach((id) => s().toggleSelect(id));
+    const result = s().mergeSelected();
+    expect(result).toEqual({ conflict: false });
+    // the lone panel survives in the merged top-left cell, nothing destroyed
+    const merged = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    expect(merged.panel?.instanceId).toBe("id-lone");
+    expect(destroyed).toEqual([]);
+    expect(s().selectedIds).toEqual([]);
+  });
+
+  it("merging two populated cells is a conflict: no mutation until resolved", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, () => "id-a");
+    s().setPanel(cellId(2, 1), "web", undefined, () => "id-b");
+    destroyed.length = 0;
+    [cellId(1, 1), cellId(2, 1)].forEach((id) => s().toggleSelect(id));
+    const layoutBefore = s().layout;
+    const result = s().mergeSelected();
+    expect(result.conflict).toBe(true);
+    expect(
+      (result as { conflict: true; candidates: { instanceId: string }[] }).candidates.map(
+        (p) => p.instanceId,
+      ),
+    ).toEqual(["id-a", "id-b"]);
+    // layout untouched, selection retained, nothing destroyed
+    expect(s().layout).toBe(layoutBefore);
+    expect(s().selectedIds).toEqual([cellId(1, 1), cellId(2, 1)]);
+    expect(destroyed).toEqual([]);
+  });
+
+  it("resolveMerge keeps the chosen panel and destroys the rest", () => {
+    s().setPanel(cellId(1, 1), "web", undefined, () => "id-a");
+    s().setPanel(cellId(2, 1), "web", undefined, () => "id-b");
+    destroyed.length = 0;
+    [cellId(1, 1), cellId(2, 1)].forEach((id) => s().toggleSelect(id));
+    s().mergeSelected(); // -> conflict
+    s().resolveMerge("id-b");
+    const merged = s().layout.cells.find((c) => c.id === cellId(1, 1))!;
+    expect(merged.panel?.instanceId).toBe("id-b");
+    expect(destroyed).toEqual(["id-a"]);
+    expect(s().selectedIds).toEqual([]);
+    expect(s().selectMode).toBe(false);
   });
 
   it("loadLayout replaces the layout, clears selection, and destroys dropped panels", () => {

@@ -68,8 +68,9 @@ describe("remapToPreset", () => {
     let base = makePreset(9);
     base = withPanel(base, 1, 1, "panel-merged");
 
-    // Merge c1-r1 and c2-r1 into a 2×1 spanning cell (top-left stays at c1-r1)
-    const merged = mergeCells(base, [cellId(1, 1), cellId(2, 1)]);
+    // Merge c1-r1 and c2-r1 into a 2×1 spanning cell, keeping the c1-r1 panel
+    const keep = base.cells.find((c) => c.id === cellId(1, 1))!.panel;
+    const merged = mergeCells(base, [cellId(1, 1), cellId(2, 1)], keep);
 
     // Verify the merge took effect: the merged cell spans 2 columns
     const mergedCell = merged.cells.find((c) => c.id === cellId(1, 1));

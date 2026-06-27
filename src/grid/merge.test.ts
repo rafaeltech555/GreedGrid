@@ -7,9 +7,11 @@ import {
   isMerged,
   isRectangularSelection,
   mergeCells,
+  panelsInSelection,
   splitCell,
 } from "./merge";
 import { cellId } from "./cellId";
+import type { PanelConfig } from "../lib/types";
 
 // A 3×3 grid: ids are c<col>-r<row>.
 const grid = () => makePreset(9);
@@ -52,7 +54,7 @@ describe("canMerge", () => {
 describe("mergeCells", () => {
   it("replaces a 2×2 block with one spanning cell at the top-left", () => {
     const ids = [cellId(1, 1), cellId(2, 1), cellId(1, 2), cellId(2, 2)];
-    const merged = mergeCells(grid(), ids);
+    const merged = mergeCells(grid(), ids, null);
     // 9 cells - 4 merged + 1 = 6
     expect(merged.cells).toHaveLength(6);
     const big = merged.cells.find((c) => c.id === cellId(1, 1))!;
@@ -65,27 +67,60 @@ describe("mergeCells", () => {
 
   it("throws on a non-rectangular selection", () => {
     const ids = [cellId(1, 1), cellId(2, 1), cellId(1, 2)];
-    expect(() => mergeCells(grid(), ids)).toThrow();
+    expect(() => mergeCells(grid(), ids, null)).toThrow();
   });
 
-  it("preserves the top-left cell's panel", () => {
+  it("keeps the panel passed as `keep`, regardless of which cell it came from", () => {
+    const layout = grid();
+    // panel lives in the *right* cell, not the top-left
+    const panel: PanelConfig = { instanceId: "x", kind: "web", config: {} };
+    layout.cells.find((c) => c.id === cellId(2, 1))!.panel = panel;
+    const merged = mergeCells(layout, [cellId(1, 1), cellId(2, 1)], panel);
+    expect(merged.cells.find((c) => c.id === cellId(1, 1))!.panel).toEqual(panel);
+  });
+
+  it("leaves the merged cell empty when `keep` is null", () => {
     const layout = grid();
     layout.cells.find((c) => c.id === cellId(1, 1))!.panel = {
       instanceId: "x",
       kind: "web",
       config: {},
     };
-    const merged = mergeCells(layout, [cellId(1, 1), cellId(2, 1)]);
-    expect(merged.cells.find((c) => c.id === cellId(1, 1))!.panel?.kind).toBe(
-      "web",
-    );
+    const merged = mergeCells(layout, [cellId(1, 1), cellId(2, 1)], null);
+    expect(merged.cells.find((c) => c.id === cellId(1, 1))!.panel).toBeNull();
+  });
+});
+
+describe("panelsInSelection", () => {
+  it("returns the non-null panels in reading order (row then col)", () => {
+    const layout = grid();
+    // place in cellId(2,1) then cellId(1,2) — out of reading order on purpose
+    layout.cells.find((c) => c.id === cellId(2, 1))!.panel = {
+      instanceId: "b",
+      kind: "web",
+      config: {},
+    };
+    layout.cells.find((c) => c.id === cellId(1, 2))!.panel = {
+      instanceId: "c",
+      kind: "terminal",
+      config: {},
+    };
+    const ids = [cellId(1, 2), cellId(2, 1), cellId(1, 1)];
+    expect(panelsInSelection(layout, ids).map((p) => p.instanceId)).toEqual([
+      "b", // row 1, col 2
+      "c", // row 2, col 1
+    ]);
+  });
+
+  it("returns an empty array when no selected cell has a panel", () => {
+    expect(panelsInSelection(grid(), [cellId(1, 1), cellId(2, 1)])).toEqual([]);
   });
 });
 
 describe("splitCell", () => {
   it("round-trips: merge then split restores 9 unit cells", () => {
     const ids = [cellId(1, 1), cellId(2, 1), cellId(1, 2), cellId(2, 2)];
-    const merged = mergeCells(grid(), ids);
+    const merged = mergeCells(grid(), ids, null);
     const split = splitCell(merged, cellId(1, 1));
     expect(split.cells).toHaveLength(9);
     expect(split.cells.every((c) => !isMerged(c))).toBe(true);

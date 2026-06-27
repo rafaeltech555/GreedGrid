@@ -1,9 +1,25 @@
 import { create } from "zustand";
-import type { GridLayout, PanelKind } from "../lib/types";
+import type { GridLayout, PanelConfig, PanelKind } from "../lib/types";
 import { makePreset } from "../grid/presets";
-import { canMerge, isMerged, mergeCells, splitCell } from "../grid/merge";
+import {
+  canMerge,
+  isMerged,
+  mergeCells,
+  panelsInSelection,
+  splitCell,
+} from "../grid/merge";
 import { getPanelType } from "../panels/registry";
 import { panelsRemoved } from "../panels/lifecycle";
+
+/**
+ * Outcome of `mergeSelected`. A merge with ≤1 live panel completes immediately
+ * (`conflict: false`). With 2+ live panels it cannot decide which to keep, so it
+ * leaves the layout untouched and hands the candidates back for the UI to ask;
+ * the choice is then committed via `resolveMerge`.
+ */
+export type MergeResult =
+  | { conflict: false }
+  | { conflict: true; candidates: PanelConfig[] };
 
 interface LayoutState {
   /** The persisted-shape layout document (geometry + cells). */
@@ -18,7 +34,8 @@ interface LayoutState {
   clearSelection: () => void;
   setSelectMode: (on: boolean) => void;
   toggleSelectMode: () => void;
-  mergeSelected: () => void;
+  mergeSelected: () => MergeResult;
+  resolveMerge: (keepInstanceId: string) => void;
   splitSelected: () => void;
   setCols: (cols: number[]) => void;
   setRows: (rows: number[]) => void;
@@ -52,7 +69,7 @@ function fireDestroyed(before: GridLayout, after: GridLayout): void {
   }
 }
 
-export const useLayoutStore = create<LayoutState>((set) => ({
+export const useLayoutStore = create<LayoutState>((set, get) => ({
   layout: makePreset(4),
   selectedIds: [],
   selectMode: false,
@@ -80,10 +97,28 @@ export const useLayoutStore = create<LayoutState>((set) => ({
       s.selectMode ? { selectMode: false, selectedIds: [] } : { selectMode: true },
     ),
 
-  mergeSelected: () =>
+  // ≤1 live panel → merge now, keeping that lone panel (or empty). 2+ → signal a
+  // conflict and leave the layout alone; the UI resolves it via resolveMerge.
+  mergeSelected: () => {
+    const s = get();
+    if (!canMerge(s.layout, s.selectedIds)) return { conflict: false };
+    const panels = panelsInSelection(s.layout, s.selectedIds);
+    if (panels.length >= 2) return { conflict: true, candidates: panels };
+    const keep = panels[0] ?? null;
+    const after = mergeCells(s.layout, s.selectedIds, keep);
+    fireDestroyed(s.layout, after);
+    set({ layout: after, selectedIds: [], selectMode: false });
+    return { conflict: false };
+  },
+
+  resolveMerge: (keepInstanceId) =>
     set((s) => {
       if (!canMerge(s.layout, s.selectedIds)) return s;
-      const after = mergeCells(s.layout, s.selectedIds);
+      const keep =
+        panelsInSelection(s.layout, s.selectedIds).find(
+          (p) => p.instanceId === keepInstanceId,
+        ) ?? null;
+      const after = mergeCells(s.layout, s.selectedIds, keep);
       fireDestroyed(s.layout, after);
       return { layout: after, selectedIds: [], selectMode: false };
     }),

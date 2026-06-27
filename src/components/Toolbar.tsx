@@ -7,6 +7,7 @@ import {
 import { PRESET_COUNTS, type PresetCount } from "../grid/presets";
 import { remapToPreset } from "../grid/remap";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { MergeConflictDialog } from "./MergeConflictDialog";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import type { PanelConfig } from "../lib/types";
 
@@ -27,6 +28,7 @@ export function Toolbar() {
   const layout = useLayoutStore((s) => s.layout);
   const loadLayout = useLayoutStore((s) => s.loadLayout);
   const mergeSelected = useLayoutStore((s) => s.mergeSelected);
+  const resolveMerge = useLayoutStore((s) => s.resolveMerge);
   const splitSelected = useLayoutStore((s) => s.splitSelected);
   const clearSelection = useLayoutStore((s) => s.clearSelection);
   const selectMode = useLayoutStore((s) => s.selectMode);
@@ -37,6 +39,11 @@ export function Toolbar() {
   const canSplit = useLayoutStore(selectionSplittable);
 
   const [pendingPreset, setPendingPreset] = useState<PendingPreset>(null);
+  // Candidates awaiting a "keep which panel?" choice when a merge hits a
+  // 2+-panel conflict (mirrors the pendingPreset pattern above).
+  const [mergeCandidates, setMergeCandidates] = useState<PanelConfig[] | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!selectMode) return;
@@ -46,6 +53,11 @@ export function Toolbar() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [selectMode, setSelectMode]);
+
+  function handleMergeClick() {
+    const result = mergeSelected();
+    if (result.conflict) setMergeCandidates(result.candidates);
+  }
 
   function handlePresetClick(count: PresetCount) {
     const { layout: next, dropped } = remapToPreset(layout, count);
@@ -86,7 +98,7 @@ export function Toolbar() {
       </button>
 
       <button
-        onClick={mergeSelected}
+        onClick={handleMergeClick}
         disabled={!canMerge}
         className="rounded border border-white/10 px-2.5 py-1 text-xs text-white/70 enabled:hover:border-emerald-400/50 enabled:hover:text-white disabled:opacity-30"
       >
@@ -122,6 +134,17 @@ export function Toolbar() {
             setPendingPreset(null);
           }}
           onCancel={() => setPendingPreset(null)}
+        />
+      )}
+
+      {mergeCandidates && (
+        <MergeConflictDialog
+          candidates={mergeCandidates}
+          onKeep={(instanceId) => {
+            resolveMerge(instanceId);
+            setMergeCandidates(null);
+          }}
+          onCancel={() => setMergeCandidates(null)}
         />
       )}
     </div>
