@@ -8,7 +8,9 @@ use tauri::AppHandle;
 use crate::error::AppResult;
 
 // Pre-rendered icon bytes baked into the binary (see icons/gen-tray-icons.py).
-const NEUTRAL_PNG: &[u8] = include_bytes!("../../icons/tray-neutral.png");
+// NEUTRAL_PNG is also the tray's initial icon, set in lib.rs setup — shared here
+// so there is a single source of truth for the embedded bytes.
+pub(crate) const NEUTRAL_PNG: &[u8] = include_bytes!("../../icons/tray-neutral.png");
 const IDLE_PNG: &[u8] = include_bytes!("../../icons/tray-idle.png");
 
 /// Update the tray icon + tooltip. `active` = some terminal is idle.

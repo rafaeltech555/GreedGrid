@@ -27,8 +27,10 @@ pub fn run() {
 
             // System tray (Stage B IDLE). Starts neutral; the frontend flips it
             // to amber via `set_idle_indicator` when any terminal is idle.
-            let neutral = Image::from_bytes(include_bytes!("../icons/tray-neutral.png"))
-                .expect("tray-neutral.png must decode");
+            let neutral = Image::from_bytes(commands::tray::NEUTRAL_PNG)?;
+            // Tauri clones the icon into its resources table on build, so the
+            // local handle can be dropped — the tray persists for the process
+            // lifetime and is retrieved via `tray_by_id("main")`.
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(neutral)
                 .tooltip("GreedGrid")
@@ -41,8 +43,8 @@ pub fn run() {
                     } = event
                     {
                         if let Some(win) = tray.app_handle().get_webview_window("main") {
-                            let _ = win.show();
                             let _ = win.unminimize();
+                            let _ = win.show();
                             let _ = win.set_focus();
                         }
                     }
