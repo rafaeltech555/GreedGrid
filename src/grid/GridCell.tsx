@@ -213,7 +213,7 @@ export function GridCell({ cell }: GridCellProps) {
           >
             +
           </button>
-          <div className="absolute right-1 top-1 hidden group-hover:flex">
+          <div className="absolute right-1 top-1 hidden group-hover:flex group-focus-within:flex">
             <MaximizeButton
               cellId={cell.id}
               className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"

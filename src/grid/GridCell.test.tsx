@@ -279,8 +279,9 @@ describe("GridCell", () => {
 
       expect(max.style.position).toBe("absolute");
       expect(other.style.display).toBe("none");
-      // Hidden cell is still in the DOM (component kept alive).
-      expect(other).toBeTruthy();
+      // getByTestId above would have thrown if it were unmounted; this makes the
+      // "hidden but kept alive" contract explicit.
+      expect(other).toBeInTheDocument();
     });
 
     it("renders a Maximize button in populated-panel chrome", () => {
@@ -289,7 +290,16 @@ describe("GridCell", () => {
       render(<GridCell cell={useLayoutStore.getState().layout.cells[0]} />);
       expect(
         screen.getByRole("button", { name: "Maximize panel" }),
-      ).toBeTruthy();
+      ).toBeInTheDocument();
+    });
+
+    it("renders a Maximize button on an empty cell", () => {
+      // Empty cell (no panel, picker closed): the + lives alongside a hover
+      // Maximize affordance.
+      render(<GridCell cell={cellOf(cellId(1, 1))} />);
+      expect(
+        screen.getByRole("button", { name: "Maximize panel" }),
+      ).toBeInTheDocument();
     });
   });
 
