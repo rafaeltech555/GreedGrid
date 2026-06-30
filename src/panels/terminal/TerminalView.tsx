@@ -7,6 +7,8 @@ import "@xterm/xterm/css/xterm.css";
 import type { ConfigFormProps, PanelViewProps } from "../types";
 import type { TermConfig } from "./types";
 import { isTauri, pickFiles, termOpen, termResize, termWrite } from "../../lib/ipc";
+import { useIdleStore } from "../../store/idleStore";
+import { IdleIcon } from "../../components/IdleIcon";
 
 /** POSIX single-quote a path so spaces/specials survive the shell verbatim. */
 function shellQuote(p: string): string {
@@ -34,6 +36,8 @@ function insertPickedFiles(term: Terminal): void {
 export function TerminalView({ instanceId, config }: PanelViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
+
+  const idle = useIdleStore((st) => st.isIdle(instanceId));
 
   useEffect(() => {
     if (!isTauri()) return; // no backend in a plain browser; see placeholder below
@@ -92,7 +96,10 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
       termWrite(instanceId, new TextEncoder().encode(s));
 
     // Keystrokes → pty.
-    const dataSub = term.onData((data) => send(data));
+    const dataSub = term.onData((data) => {
+      useIdleStore.getState().markViewed(instanceId, Date.now());
+      send(data);
+    });
 
     // IME input fix for WebKitGTK + fcitx (Linux). On this webview an IME commit
     // arrives as a keydown(keyCode 229) plus an `input` event of inputType
@@ -152,16 +159,26 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
     };
   }, [instanceId, config]);
 
+  const markViewedNow = () =>
+    useIdleStore.getState().markViewed(instanceId, Date.now());
+
   if (!isTauri()) {
     return (
-      <div className="flex h-full w-full items-center justify-center p-2 text-center text-xs text-white/30">
+      <div
+        className={`relative flex h-full w-full items-center justify-center p-2 text-center text-xs text-white/30 ${idle ? "idle-glow" : ""}`}
+      >
         Terminal requires the desktop app (no pty backend in browser).
+        <IdleOverlay idle={idle} onView={markViewedNow} />
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full bg-black">
+    <div
+      className={`relative h-full w-full bg-black ${idle ? "idle-glow" : ""}`}
+      onMouseDown={markViewedNow}
+      onFocusCapture={markViewedNow}
+    >
       <div ref={hostRef} className="h-full w-full" />
       <button
         type="button"
@@ -175,7 +192,32 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
       >
         📎
       </button>
+      <IdleOverlay idle={idle} onView={markViewedNow} />
     </div>
+  );
+}
+
+/** Amber idle affordances: a small status icon (top-left) always present, and a
+ *  clickable "此面板閒置" badge that appears only when idle. Clicking either
+ *  marks the terminal viewed. */
+function IdleOverlay({ idle, onView }: { idle: boolean; onView: () => void }) {
+  return (
+    <>
+      <div className="pointer-events-none absolute left-1 top-1 z-10">
+        <IdleIcon idle={idle} />
+      </div>
+      {idle && (
+        <button
+          type="button"
+          aria-label="此面板閒置 — 點擊清除"
+          onClick={onView}
+          className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-xs text-amber-300 ring-1 ring-amber-400/40 hover:bg-amber-400/25"
+        >
+          <IdleIcon idle size={14} />
+          此面板閒置
+        </button>
+      )}
+    </>
   );
 }
 
