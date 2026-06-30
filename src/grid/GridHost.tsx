@@ -1,4 +1,5 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { shouldRestoreMaximize } from "./maximize";
 import { useLayoutStore } from "../store/layoutStore";
 import { resizeTrack } from "./resize";
 import { useElementSize } from "./useElementSize";
@@ -37,6 +38,31 @@ export function GridHost() {
   const [ref, size] = useElementSize<HTMLDivElement>();
   // Snapshot of the track array at drag start, so each move resizes from origin.
   const dragStart = useRef<number[] | null>(null);
+
+  const selectMode = useLayoutStore((s) => s.selectMode);
+  const maximizedCellId = usePanelUiStore((s) => s.maximizedCellId);
+  const restoreCell = usePanelUiStore((s) => s.restoreCell);
+
+  // Restore the maximize when its target cell vanishes (merge/split/preset/
+  // workspace load) or when select mode is entered (maximize and selection
+  // must not coexist).
+  useEffect(() => {
+    if (shouldRestoreMaximize(layout.cells, maximizedCellId, selectMode)) {
+      restoreCell();
+    }
+  }, [layout.cells, maximizedCellId, selectMode, restoreCell]);
+
+  // Esc restores. Independent of Toolbar's select-mode Esc: the two states are
+  // mutually exclusive (entering select restores maximize, above), so they
+  // never both consume the same Escape.
+  useEffect(() => {
+    if (maximizedCellId === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") restoreCell();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [maximizedCellId, restoreCell]);
 
   const openDropMenu = usePanelUiStore((s) => s.openDropMenu);
   const handleFileDrop = useCallback(
@@ -77,7 +103,7 @@ export function GridHost() {
 
       {/* Column splitters — boundary i sits between track i and i+1; render one
           Splitter per run of rows not crossed by a merged cell. */}
-      {colCenters.flatMap((pos, i) =>
+      {maximizedCellId === null && colCenters.flatMap((pos, i) =>
         boundarySegments(layout.cells, "col", i + 1, rows.length).map((seg) => {
           const { offset, length } = trackSpanPx(rows, areaH, gap, seg.start, seg.end);
           return (
@@ -102,7 +128,7 @@ export function GridHost() {
       )}
 
       {/* Row splitters. */}
-      {rowCenters.flatMap((pos, i) =>
+      {maximizedCellId === null && rowCenters.flatMap((pos, i) =>
         boundarySegments(layout.cells, "row", i + 1, cols.length).map((seg) => {
           const { offset, length } = trackSpanPx(cols, areaW, gap, seg.start, seg.end);
           return (
