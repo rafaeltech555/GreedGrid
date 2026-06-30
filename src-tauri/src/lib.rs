@@ -6,6 +6,9 @@ mod sysmon;
 
 use pty::PtyRegistry;
 use sysmon::Sampler;
+use tauri::image::Image;
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +24,31 @@ pub fn run() {
             if let Err(e) = commands::web::init_overlay(&handle) {
                 eprintln!("web overlay init failed: {e}");
             }
+
+            // System tray (Stage B IDLE). Starts neutral; the frontend flips it
+            // to amber via `set_idle_indicator` when any terminal is idle.
+            let neutral = Image::from_bytes(include_bytes!("../icons/tray-neutral.png"))
+                .expect("tray-neutral.png must decode");
+            let _tray = TrayIconBuilder::with_id("main")
+                .icon(neutral)
+                .tooltip("GreedGrid")
+                .on_tray_icon_event(|tray, event| {
+                    // Left click: surface + focus the window. The frontend's
+                    // window-focus listener then clears all idle reminders.
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        ..
+                    } = event
+                    {
+                        if let Some(win) = tray.app_handle().get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.unminimize();
+                            let _ = win.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -45,6 +73,7 @@ pub fn run() {
             commands::web::web_set_visible,
             commands::web::web_reload,
             commands::web::web_close,
+            commands::tray::set_idle_indicator,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
