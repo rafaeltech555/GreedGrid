@@ -175,3 +175,9 @@ export function webReload(instanceId: string): Promise<void> {
 export function webClose(instanceId: string): Promise<void> {
   return invoke<void>("web_close", { instanceId });
 }
+
+// --- System tray (Stage B IDLE) --------------------------------------------
+/** Swap the tray icon/tooltip to reflect whether any terminal is idle. */
+export function setIdleIndicator(active: boolean, tooltip: string): Promise<void> {
+  return invoke<void>("set_idle_indicator", { active, tooltip });
+}

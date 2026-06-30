@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { isTauri, termList } from "../lib/ipc";
+import { isTauri, termList, setIdleIndicator } from "../lib/ipc";
 import { useIdleStore } from "./idleStore";
 import { useLayoutStore } from "./layoutStore";
 
@@ -48,10 +48,23 @@ export function useIdlePolling(): void {
     const onFocus = () => getIdleState().clearAll(Date.now());
     window.addEventListener("focus", onFocus);
 
+    // Mirror anyIdle → tray icon/tooltip. Push the initial state, then on change.
+    let lastActive: boolean | null = null;
+    const syncTray = () => {
+      const active = getIdleState().anyIdle();
+      if (active === lastActive) return;
+      lastActive = active;
+      const tooltip = active ? "GreedGrid — terminal 跑完待查看" : "GreedGrid";
+      void setIdleIndicator(active, tooltip).catch(() => {});
+    };
+    const unsub = useIdleStore.subscribe(syncTray);
+    syncTray();
+
     return () => {
       cancelled = true;
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
+      unsub();
     };
   }, []);
 }
