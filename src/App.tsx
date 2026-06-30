@@ -5,11 +5,13 @@ import { GridHost } from "./grid/GridHost";
 import { registerAllPanels } from "./panels";
 import { ConfigModal } from "./panels/ConfigModal";
 import { DropMenu } from "./panels/DropMenu";
+import { useIdlePolling } from "./store/useIdlePolling";
 
 registerAllPanels();
 
 function App() {
   const [backend, setBackend] = useState<string>("…");
+  useIdlePolling();
 
   useEffect(() => {
     if (!isTauri()) {
