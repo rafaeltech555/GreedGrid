@@ -11,7 +11,7 @@ beforeEach(() => {
     selectedIds: [],
     selectMode: false,
   });
-  usePanelUiStore.setState({ maximizedCellId: null });
+  usePanelUiStore.setState({ maximizedCellId: null, dropMenu: null });
 });
 afterEach(cleanup);
 
@@ -64,5 +64,17 @@ describe("GridHost maximize integration", () => {
     render(<GridHost />);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(usePanelUiStore.getState().maximizedCellId).toBeNull();
+  });
+
+  it("Escape does not restore while an overlay (dropMenu) is open", () => {
+    const id = useLayoutStore.getState().layout.cells[0].id;
+    usePanelUiStore.setState({
+      maximizedCellId: id,
+      dropMenu: { cellId: id, path: "/x", x: 0, y: 0 },
+    });
+    render(<GridHost />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    // Overlay consumes Esc; maximize stays until a second Esc.
+    expect(usePanelUiStore.getState().maximizedCellId).toBe(id);
   });
 });

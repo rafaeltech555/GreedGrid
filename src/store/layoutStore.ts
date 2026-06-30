@@ -10,6 +10,7 @@ import {
 } from "../grid/merge";
 import { getPanelType } from "../panels/registry";
 import { panelsRemoved } from "../panels/lifecycle";
+import { usePanelUiStore } from "../panels/panelUiStore";
 
 /**
  * Outcome of `mergeSelected`. A merge with ≤1 live panel completes immediately
@@ -74,11 +75,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   selectedIds: [],
   selectMode: false,
 
-  loadLayout: (layout) =>
-    set((s) => {
-      fireDestroyed(s.layout, layout);
-      return { layout, selectedIds: [] };
-    }),
+  loadLayout: (layout) => {
+    fireDestroyed(get().layout, layout);
+    // A wholesale layout replacement invalidates any maximize: positional cell
+    // ids can survive the swap, so we cannot rely on id-disappearance to restore.
+    usePanelUiStore.getState().restoreCell();
+    set({ layout, selectedIds: [] });
+  },
 
   toggleSelect: (id) =>
     set((s) => ({

@@ -8,6 +8,7 @@ import { cellId } from "../grid/cellId";
 import { makePreset } from "../grid/presets";
 import { __clearRegistry, registerPanel } from "../panels/registry";
 import type { PanelTypeDef } from "../panels/types";
+import { usePanelUiStore } from "../panels/panelUiStore";
 
 // Reset the store to a known state before each test.
 beforeEach(() => {
@@ -121,6 +122,14 @@ describe("layoutStore", () => {
     s().loadLayout(makePreset(4));
     const layout = s().layout;
     expect(JSON.parse(JSON.stringify(layout))).toEqual(layout);
+  });
+
+  it("loadLayout restores any active maximize (positional ids can survive a layout swap)", () => {
+    usePanelUiStore.setState({ maximizedCellId: "c1-r1" });
+    // makePreset(6) still contains c1-r1, so the id-presence guard alone would NOT
+    // catch this — loadLayout must clear it explicitly.
+    useLayoutStore.getState().loadLayout(makePreset(6));
+    expect(usePanelUiStore.getState().maximizedCellId).toBeNull();
   });
 });
 

@@ -58,7 +58,12 @@ export function GridHost() {
   useEffect(() => {
     if (maximizedCellId === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") restoreCell();
+      if (e.key !== "Escape") return;
+      // Let an open overlay (config modal / folder-drop menu) consume Esc first;
+      // a second Esc (after it closes) then restores the maximize.
+      const ui = usePanelUiStore.getState();
+      if (ui.modal || ui.dropMenu) return;
+      restoreCell();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
