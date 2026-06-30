@@ -10,6 +10,8 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { MergeConflictDialog } from "./MergeConflictDialog";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import type { PanelConfig } from "../lib/types";
+import { useIdleStore } from "../store/idleStore";
+import { IdleIcon } from "./IdleIcon";
 
 type PendingPreset = {
   count: PresetCount;
@@ -37,6 +39,9 @@ export function Toolbar() {
   const selectedCount = useLayoutStore((s) => s.selectedIds.length);
   const canMerge = useLayoutStore(selectionMergeable);
   const canSplit = useLayoutStore(selectionSplittable);
+
+  const anyIdle = useIdleStore((s) => s.anyIdle());
+  const clearAllIdle = useIdleStore((s) => s.clearAll);
 
   const [pendingPreset, setPendingPreset] = useState<PendingPreset>(null);
   // Candidates awaiting a "keep which panel?" choice when a merge hits a
@@ -122,6 +127,23 @@ export function Toolbar() {
       )}
       <div className="mx-1 h-4 w-px bg-white/10" />
       <WorkspaceMenu />
+
+      <div className="ml-auto">
+        <button
+          type="button"
+          onClick={() => clearAllIdle(Date.now())}
+          aria-label={anyIdle ? "閒置 — 點擊清除全部" : "活動中"}
+          title={anyIdle ? "有 terminal 跑完待查看 — 點擊清除" : "目前無待辦"}
+          className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs ${
+            anyIdle
+              ? "border-amber-400/50 bg-amber-400/10 text-amber-300"
+              : "border-white/10 text-white/40"
+          }`}
+        >
+          <IdleIcon idle={anyIdle} />
+          {anyIdle ? "閒置" : "活動中"}
+        </button>
+      </div>
 
       {pendingPreset && (
         <ConfirmDialog

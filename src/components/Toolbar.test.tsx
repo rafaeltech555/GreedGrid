@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useIdleStore } from "../store/idleStore";
 import userEvent from "@testing-library/user-event";
 import { Toolbar } from "./Toolbar";
 import { useLayoutStore } from "../store/layoutStore";
@@ -141,5 +142,23 @@ describe("Toolbar — select mode", () => {
     expect(useLayoutStore.getState().selectMode).toBe(true);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(useLayoutStore.getState().selectMode).toBe(false);
+  });
+});
+
+describe("Toolbar idle chip", () => {
+  beforeEach(() => useIdleStore.setState({ entries: {} }));
+
+  it("shows 活動中 when nothing is idle", () => {
+    render(<Toolbar />);
+    expect(screen.getByRole("button", { name: /活動中/ })).toBeInTheDocument();
+  });
+
+  it("shows 閒置 and clears all on click when a terminal is idle", () => {
+    useIdleStore.getState().updateForeground("t1", true, 10);
+    useIdleStore.getState().updateForeground("t1", false, 20);
+    render(<Toolbar />);
+    const chip = screen.getByRole("button", { name: /閒置/ });
+    fireEvent.click(chip);
+    expect(useIdleStore.getState().anyIdle()).toBe(false);
   });
 });
