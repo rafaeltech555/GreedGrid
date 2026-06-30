@@ -14,6 +14,7 @@ import { usePanelUiStore } from "../panelUiStore";
 import { PANEL_MOVE_DND } from "../dnd";
 import { measureRect } from "./geometry";
 import { useWebSuppressed } from "./useWebSuppressed";
+import { MaximizeButton } from "../../grid/MaximizeButton";
 
 const RESIZE_DEBOUNCE_MS = 150;
 const btn =
@@ -44,6 +45,7 @@ function WebChrome({
         <span className="flex-1 truncate text-xs text-white/50" title={url}>
           {url}
         </span>
+        {cellId && <MaximizeButton cellId={cellId} className={btn} />}
         <button type="button" aria-label="Reload page" className={btn}
           onClick={() => void webReload(instanceId).catch(console.error)}>
           ↻
@@ -79,7 +81,7 @@ export function WebView({ instanceId, config }: PanelViewProps) {
   const url = (config as unknown as WebConfig).url;
   const slotRef = useRef<HTMLDivElement>(null);
   const tauri = isTauri();
-  const suppressed = useWebSuppressed();
+  const suppressed = useWebSuppressed(instanceId);
   const suppressedRef = useRef(suppressed);
 
   // Close the child webview when this panel unmounts (removed / moved / kind change).
