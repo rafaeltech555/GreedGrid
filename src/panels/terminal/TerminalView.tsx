@@ -200,27 +200,23 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
   );
 }
 
-/** Amber idle affordances: a small status icon (top-left) always present, and a
- *  clickable "此面板閒置" badge that appears only when idle. Clicking either
- *  marks the terminal viewed. */
+/** Amber idle affordance: a clickable "此面板閒置" badge that appears only when
+ *  idle (clicking it marks the terminal viewed). Idle is otherwise conveyed by
+ *  the cell's amber glow and the toolbar chip — there is intentionally no
+ *  always-present status icon over the terminal output, which would obscure the
+ *  first row of text. */
 function IdleOverlay({ idle, onView }: { idle: boolean; onView: () => void }) {
+  if (!idle) return null;
   return (
-    <>
-      <div className="pointer-events-none absolute left-1 top-1 z-10">
-        <IdleIcon idle={idle} />
-      </div>
-      {idle && (
-        <button
-          type="button"
-          aria-label="此面板閒置 — 點擊清除"
-          onClick={onView}
-          className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-xs text-amber-300 ring-1 ring-amber-400/40 hover:bg-amber-400/25"
-        >
-          <IdleIcon idle size={14} />
-          此面板閒置
-        </button>
-      )}
-    </>
+    <button
+      type="button"
+      aria-label="此面板閒置 — 點擊清除"
+      onClick={onView}
+      className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded bg-amber-400/15 px-2 py-0.5 text-xs text-amber-300 ring-1 ring-amber-400/40 hover:bg-amber-400/25"
+    >
+      <IdleIcon idle size={14} />
+      此面板閒置
+    </button>
   );
 }
 
