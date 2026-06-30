@@ -17,13 +17,16 @@ afterEach(cleanup);
 
 describe("GridHost maximize integration", () => {
   it("renders no splitters while a cell is maximized", () => {
-    const { container, rerender } = render(<GridHost />);
+    const { container } = render(<GridHost />);
     const before = container.querySelectorAll('[role="separator"]').length;
     expect(before).toBeGreaterThan(0);
 
     const id = useLayoutStore.getState().layout.cells[0].id;
-    usePanelUiStore.setState({ maximizedCellId: id });
-    rerender(<GridHost />);
+    // Zustand notifies subscribers synchronously; wrap in act() so React's
+    // re-render flushes inside it (matches Toolbar.test.tsx's convention).
+    act(() => {
+      usePanelUiStore.setState({ maximizedCellId: id });
+    });
     expect(container.querySelectorAll('[role="separator"]').length).toBe(0);
   });
 
