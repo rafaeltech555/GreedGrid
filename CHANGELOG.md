@@ -17,10 +17,10 @@
 
 #### Terminal IDLE reminder（終端機閒置提示）
 
-- Terminal panel 的前景指令執行完畢、而使用者尚未回看該格時，以 amber 慢速光暈動畫提醒（`animate-pulse`）：
+- Terminal panel 的前景指令執行完畢、而使用者尚未回看該格時，以 amber 慢速動畫提醒（自訂 keyframes：邊框光暈 `glowpulse`、laptop+zzz 圖示 `zfloat`/`breathe`，並尊重 `prefers-reduced-motion`）：
   - **per-panel 邊框光暈**：閒置中的 terminal cell 邊框顯示 amber 漸層光圈。
-  - **「此面板閒置」徽章**：panel 內疊加半透明徽章提示。
-  - **工具列狀態 chip**：Toolbar 顯示「N 個閒置」chip，點擊可快速跳至對應 panel。
+  - **「此面板閒置」徽章**：panel 左下浮出可點擊徽章，點擊即清除該格閒置。
+  - **工具列狀態 chip**：Toolbar 右側顯示「閒置 / 活動中」狀態 chip；任一 terminal 閒置時轉 amber，點擊即清除**全部**閒置提示。
   - **System tray**（首次引入）：tray icon 在有 terminal 閒置時變色；tray 選單提供「顯示視窗」與「結束」兩項（Cinnamon / libappindicator 環境必須掛選單才顯示 tray icon，因此同時解決了 tray 不可見問題）。
 - 前景指令偵測：透過 pty 的 `process_group_leader()` 判斷是否有前景 process 在跑；shell 等待輸入時視為閒置。
 - **清除條件（回看即清除）**：在 terminal panel 中鍵入任何字元、滑鼠點擊、聚焦主視窗、點擊工具列 chip、或點選 tray 選單「顯示視窗」，均視為「使用者已回看」並清除閒置狀態。
