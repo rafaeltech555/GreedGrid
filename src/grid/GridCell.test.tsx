@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GridCell } from "./GridCell";
+import { GridHost } from "./GridHost";
 import { useLayoutStore } from "../store/layoutStore";
 import { usePanelUiStore } from "../panels/panelUiStore";
 import { __clearRegistry, registerPanel } from "../panels/registry";
@@ -58,7 +59,7 @@ beforeEach(() => {
   registerPanel(fileDef);
   registerPanel(terminalDef);
   useLayoutStore.setState({ layout: makePreset(4), selectedIds: [], selectMode: false });
-  usePanelUiStore.setState({ pickerCellId: null, modal: null });
+  usePanelUiStore.setState({ pickerCellId: null, modal: null, maximizedCellId: null });
   mockPickFolder.mockResolvedValue(null);
 });
 afterEach(() => {
@@ -264,6 +265,31 @@ describe("GridCell", () => {
       render(<GridCell cell={cellOf(cellId(1, 2))} />);
       // file panel has no selfChrome, so the host overlay renders the button.
       expect(screen.getByLabelText("Remove panel")).toBeInTheDocument();
+    });
+  });
+
+  describe("GridCell maximize rendering", () => {
+    it("maximized cell is absolute/inset and others are display:none but still mounted", () => {
+      const ids = useLayoutStore.getState().layout.cells.map((c) => c.id);
+      usePanelUiStore.setState({ maximizedCellId: ids[0] });
+      render(<GridHost />);
+
+      const max = screen.getByTestId(`cell-${ids[0]}`);
+      const other = screen.getByTestId(`cell-${ids[1]}`);
+
+      expect(max.style.position).toBe("absolute");
+      expect(other.style.display).toBe("none");
+      // Hidden cell is still in the DOM (component kept alive).
+      expect(other).toBeTruthy();
+    });
+
+    it("renders a Maximize button in populated-panel chrome", () => {
+      const id = useLayoutStore.getState().layout.cells[0].id;
+      useLayoutStore.getState().setPanel(id, "terminal");
+      render(<GridCell cell={useLayoutStore.getState().layout.cells[0]} />);
+      expect(
+        screen.getByRole("button", { name: "Maximize panel" }),
+      ).toBeTruthy();
     });
   });
 

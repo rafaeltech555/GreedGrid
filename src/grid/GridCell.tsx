@@ -7,6 +7,7 @@ import { usePanelUiStore } from "../panels/panelUiStore";
 import { PanelPicker } from "../panels/PanelPicker";
 import { PANEL_KIND_DND, PANEL_MOVE_DND, resolveDropTarget, resolveMove } from "../panels/dnd";
 import { isTauri, pickFolder, termClose, termList } from "../lib/ipc";
+import { MaximizeButton } from "./MaximizeButton";
 
 interface GridCellProps {
   cell: Cell;
@@ -31,6 +32,9 @@ export function GridCell({ cell }: GridCellProps) {
   const closePicker = usePanelUiStore((s) => s.closePicker);
   const openCreateModal = usePanelUiStore((s) => s.openCreateModal);
   const openEditModal = usePanelUiStore((s) => s.openEditModal);
+  const maximizedCellId = usePanelUiStore((s) => s.maximizedCellId);
+  const isMaximized = maximizedCellId === cell.id;
+  const hiddenByMaximize = maximizedCellId !== null && !isMaximized;
 
   const isSelected = selectedIds.includes(cell.id);
   const pickerOpen = pickerCellId === cell.id;
@@ -122,10 +126,16 @@ export function GridCell({ cell }: GridCellProps) {
 
   return (
     <div
-      style={{
-        gridColumn: `${cell.col} / span ${cell.colSpan}`,
-        gridRow: `${cell.row} / span ${cell.rowSpan}`,
-      }}
+      style={
+        isMaximized
+          ? { position: "absolute", inset: 0, zIndex: 30 }
+          : hiddenByMaximize
+            ? { display: "none" }
+            : {
+                gridColumn: `${cell.col} / span ${cell.colSpan}`,
+                gridRow: `${cell.row} / span ${cell.rowSpan}`,
+              }
+      }
       // Capture phase so Ctrl/Cmd+click selects the cell before any inner button
       // (e.g. the empty-cell "+") fires its own onClick.
       onClickCapture={(e) => {
@@ -152,6 +162,10 @@ export function GridCell({ cell }: GridCellProps) {
           <panelDef.View instanceId={cell.panel.instanceId} config={cell.panel.config} />
           {!panelDef.selfChrome && (
             <div className={`absolute right-1 top-1 gap-1 group-hover:flex group-focus-within:flex ${dragging ? "flex" : "hidden"}`}>
+              <MaximizeButton
+                cellId={cell.id}
+                className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"
+              />
               <button
                 type="button"
                 aria-label="Move panel"
@@ -192,12 +206,20 @@ export function GridCell({ cell }: GridCellProps) {
           onKill={onKill}
         />
       ) : (
-        <button
-          onClick={() => openPicker(cell.id)}
-          className="flex h-full w-full items-center justify-center text-2xl text-white/20 hover:text-emerald-300"
-        >
-          +
-        </button>
+        <>
+          <button
+            onClick={() => openPicker(cell.id)}
+            className="flex h-full w-full items-center justify-center text-2xl text-white/20 hover:text-emerald-300"
+          >
+            +
+          </button>
+          <div className="absolute right-1 top-1 hidden group-hover:flex">
+            <MaximizeButton
+              cellId={cell.id}
+              className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white/80 hover:text-white"
+            />
+          </div>
+        </>
       )}
       {selectMode && (
         <button
