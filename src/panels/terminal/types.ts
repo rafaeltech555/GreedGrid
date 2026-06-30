@@ -13,6 +13,8 @@ export interface SessionInfo {
   cwd: string | null;
   alive: boolean;
   attached: boolean;
+  /** True when a foreground command is currently running (best-effort). */
+  foreground: boolean;
 }
 
 /** A terminal is always ready: it can open with defaults, so placement never

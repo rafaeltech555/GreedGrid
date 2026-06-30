@@ -78,6 +78,10 @@ struct PtySession {
     /// so a reattach UI can label detached sessions.
     shell: String,
     cwd: Option<String>,
+    /// The spawned shell's pid. The shell is a session leader on the pty, so its
+    /// pgid equals this pid; comparing it to the pty's current foreground pgid
+    /// (`process_group_leader`) tells us whether a foreground command is running.
+    shell_pid: Option<u32>,
 }
 
 /// Serializable summary of one session, returned by `PtyRegistry::list` for the
@@ -91,6 +95,9 @@ pub struct SessionInfo {
     pub cwd: Option<String>,
     pub alive: bool,
     pub attached: bool,
+    /// True when a foreground command is currently running in this terminal
+    /// (best-effort; false when it cannot be determined). Drives the idle UI.
+    pub foreground: bool,
 }
 
 /// Registry of live PTYs keyed by panel `instanceId`. Lives in Tauri app state.
@@ -150,6 +157,7 @@ impl PtyRegistry {
             .slave
             .spawn_command(cmd)
             .map_err(|e| AppError::Other(format!("spawn: {e}")))?;
+        let shell_pid = child.process_id();
         // Slave is held by the child now; drop our handle so EOF propagates on exit.
         drop(pair.slave);
 
@@ -201,6 +209,7 @@ impl PtyRegistry {
                 sink: sink_slot,
                 shell: opts.shell,
                 cwd: opts.cwd,
+                shell_pid,
             },
         );
         Ok(())
@@ -268,12 +277,20 @@ impl PtyRegistry {
             .map(|(instance_id, session)| {
                 let alive = matches!(session.child.try_wait(), Ok(None));
                 let attached = session.sink.lock().unwrap().is_some();
+                // tcgetpgrp on the master; a foreground command has a pgid that
+                // differs from the shell's own pid. None (e.g. no tty) → not
+                // foreground, so the feature degrades gracefully.
+                let foreground = match (session.master.process_group_leader(), session.shell_pid) {
+                    (Some(fpgid), Some(shell_pid)) => fpgid != shell_pid as i32,
+                    _ => false,
+                };
                 SessionInfo {
                     instance_id: instance_id.clone(),
                     shell: session.shell.clone(),
                     cwd: session.cwd.clone(),
                     alive,
                     attached,
+                    foreground,
                 }
             })
             .collect()
@@ -458,6 +475,37 @@ mod tests {
         assert!(
             wait_for(&sink, b"COLORVAL[truecolor]"),
             "spawned shell must get COLORTERM=truecolor for 24-bit colour"
+        );
+    }
+
+    /// Poll `list()` until the named session reports `foreground == expected`.
+    fn wait_for_foreground(reg: &PtyRegistry, id: &str, expected: bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(4);
+        while Instant::now() < deadline {
+            if let Some(e) = reg.list().iter().find(|s| s.instance_id == id) {
+                if e.foreground == expected {
+                    return true;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(40));
+        }
+        false
+    }
+
+    #[test]
+    fn foreground_flips_true_while_a_command_runs_then_false() {
+        let reg = PtyRegistry::default();
+        let sink = Arc::new(VecSink::default());
+        reg.open("fg", opts(), sink.clone()).unwrap();
+
+        reg.write("fg", b"sleep 1\n").unwrap();
+        assert!(
+            wait_for_foreground(&reg, "fg", true),
+            "foreground must read true while `sleep` runs in the foreground"
+        );
+        assert!(
+            wait_for_foreground(&reg, "fg", false),
+            "foreground must return to false once the shell is back at its prompt"
         );
     }
 

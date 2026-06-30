@@ -47,8 +47,8 @@ describe("PanelPicker", () => {
 
   it("renders detached terminals and wires reattach/kill", async () => {
     const orphans: SessionInfo[] = [
-      { instanceId: "id-1", shell: "/bin/bash", cwd: "/home/finn/proj", alive: true, attached: false },
-      { instanceId: "id-2", shell: "/usr/bin/zsh", cwd: null, alive: false, attached: false },
+      { instanceId: "id-1", shell: "/bin/bash", cwd: "/home/finn/proj", alive: true, attached: false, foreground: false },
+      { instanceId: "id-2", shell: "/usr/bin/zsh", cwd: null, alive: false, attached: false, foreground: false },
     ];
     const onReattach = vi.fn();
     const onKill = vi.fn();
@@ -78,7 +78,7 @@ describe("PanelPicker", () => {
     // An exited session (alive: false) must still appear so the user can view
     // its final scrollback or kill it. Its status dot is marked "exited".
     const orphans: SessionInfo[] = [
-      { instanceId: "id-x", shell: "/bin/bash", cwd: "/tmp/done", alive: false, attached: false },
+      { instanceId: "id-x", shell: "/bin/bash", cwd: "/tmp/done", alive: false, attached: false, foreground: false },
     ];
     const onReattach = vi.fn();
     const onKill = vi.fn();
