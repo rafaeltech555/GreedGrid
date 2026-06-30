@@ -176,8 +176,11 @@ export function TerminalView({ instanceId, config }: PanelViewProps) {
   return (
     <div
       className={`relative h-full w-full bg-black ${idle ? "idle-glow" : ""}`}
-      onMouseDown={markViewedNow}
-      onFocusCapture={markViewedNow}
+      // Only clear-on-view matters here; onData keeps lastViewedAt fresh during
+      // active typing, so skip the store write (and subscriber fan-out) unless
+      // this terminal is actually idle.
+      onMouseDown={idle ? markViewedNow : undefined}
+      onFocusCapture={idle ? markViewedNow : undefined}
     >
       <div ref={hostRef} className="h-full w-full" />
       <button
