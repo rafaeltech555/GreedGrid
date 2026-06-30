@@ -25,7 +25,11 @@ interface PanelUiState {
   dropMenu: DropMenuState | null;
   /** Whether the toolbar's workspace "Load" dropdown is open (a grid overlay). */
   workspaceMenuOpen: boolean;
-  /** Cell currently blown up to fill the whole grid, if any (never persisted). */
+  /**
+   * Cell currently expanded to fill the entire grid, if any (never persisted).
+   * Intentionally orthogonal to picker/modal/dropMenu — a config modal may sit
+   * over a maximized panel, so `maximizeCell` does NOT clear those fields.
+   */
   maximizedCellId: string | null;
 
   openPicker: (cellId: string) => void;
