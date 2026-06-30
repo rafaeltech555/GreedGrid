@@ -22,7 +22,7 @@ function placedTerminalIds(): string[] {
 export function useIdlePolling(): void {
   useEffect(() => {
     if (!isTauri()) return;
-    const idle = useIdleStore.getState;
+    const getIdleState = useIdleStore.getState;
 
     let cancelled = false;
     const tick = async () => {
@@ -33,10 +33,10 @@ export function useIdlePolling(): void {
         const now = Date.now();
         for (const s of sessions) {
           if (placed.has(s.instanceId)) {
-            idle().updateForeground(s.instanceId, s.foreground, now);
+            getIdleState().updateForeground(s.instanceId, s.foreground, now);
           }
         }
-        idle().prune([...placed]);
+        getIdleState().prune([...placed]);
       } catch {
         // term_list can fail transiently; skip this tick.
       }
@@ -45,7 +45,7 @@ export function useIdlePolling(): void {
     const timer = window.setInterval(tick, POLL_MS);
     void tick(); // prime immediately
 
-    const onFocus = () => idle().clearAll(Date.now());
+    const onFocus = () => getIdleState().clearAll(Date.now());
     window.addEventListener("focus", onFocus);
 
     return () => {

@@ -26,6 +26,7 @@ const session = (instanceId: string, foreground: boolean): SessionInfo => ({
 
 beforeEach(() => {
   vi.useFakeTimers();
+  mockTermList.mockReset();
   useIdleStore.setState({ entries: {} });
   const layout = makePreset(4);
   layout.cells[0].panel = { kind: "terminal", instanceId: "term-1", config: {} };
@@ -57,5 +58,17 @@ describe("useIdlePolling", () => {
 
     await vi.advanceTimersByTimeAsync(1600);
     expect(useIdleStore.getState().entries.ghost).toBeUndefined();
+  });
+
+  it("clears all idle when the window regains focus", async () => {
+    mockTermList.mockResolvedValue([]);
+    renderHook(() => useIdlePolling());
+    // Seed an idle terminal, then fire the window focus event.
+    useIdleStore.getState().updateForeground("term-1", true, 10);
+    useIdleStore.getState().updateForeground("term-1", false, 20);
+    expect(useIdleStore.getState().isIdle("term-1")).toBe(true);
+
+    window.dispatchEvent(new Event("focus"));
+    expect(useIdleStore.getState().anyIdle()).toBe(false);
   });
 });
