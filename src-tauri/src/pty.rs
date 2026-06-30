@@ -270,9 +270,10 @@ impl PtyRegistry {
     /// whether a frontend sink is currently bound.
     pub fn list(&self) -> Vec<SessionInfo> {
         let mut map = self.0.lock().unwrap();
-        // We hold the registry lock across `child.try_wait()`; that's fine because
-        // `try_wait()` is non-blocking (same as `close` holding the lock across
-        // `kill`/`wait`).
+        // We hold the registry lock across `child.try_wait()` and
+        // `master.process_group_leader()` (a `tcgetpgrp` ioctl); that's fine
+        // because both are non-blocking (same class as `close` holding the lock
+        // across `kill`/`wait`).
         map.iter_mut()
             .map(|(instance_id, session)| {
                 let alive = matches!(session.child.try_wait(), Ok(None));
@@ -281,6 +282,7 @@ impl PtyRegistry {
                 // differs from the shell's own pid. None (e.g. no tty) → not
                 // foreground, so the feature degrades gracefully.
                 let foreground = match (session.master.process_group_leader(), session.shell_pid) {
+                    // Linux pid_max ≤ 4 M (2^22), so a u32 pid always fits i32.
                     (Some(fpgid), Some(shell_pid)) => fpgid != shell_pid as i32,
                     _ => false,
                 };
@@ -497,6 +499,12 @@ mod tests {
         let reg = PtyRegistry::default();
         let sink = Arc::new(VecSink::default());
         reg.open("fg", opts(), sink.clone()).unwrap();
+
+        // Settle the shell at a prompt first: print a marker and wait for it, so
+        // the `true` assertion below can only match `sleep`'s pgid, never a
+        // transient rc-script subprocess during shell startup.
+        reg.write("fg", b"printf READY\\n\n").unwrap();
+        assert!(wait_for(&sink, b"READY"), "shell did not reach its prompt");
 
         reg.write("fg", b"sleep 1\n").unwrap();
         assert!(
