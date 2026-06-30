@@ -7,6 +7,7 @@ mod sysmon;
 use pty::PtyRegistry;
 use sysmon::Sampler;
 use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
 
@@ -28,12 +29,32 @@ pub fn run() {
             // System tray (Stage B IDLE). Starts neutral; the frontend flips it
             // to amber via `set_idle_indicator` when any terminal is idle.
             let neutral = Image::from_bytes(commands::tray::NEUTRAL_PNG)?;
+            // A menu is attached so libappindicator/Cinnamon actually shows the
+            // StatusNotifierItem (a menu-less tray icon is hidden on this host).
+            let show_item = MenuItem::with_id(app, "show", "顯示視窗", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "結束", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
             // Tauri clones the icon into its resources table on build, so the
             // local handle can be dropped — the tray persists for the process
             // lifetime and is retrieved via `tray_by_id("main")`.
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(neutral)
                 .tooltip("GreedGrid")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| {
+                    match event.id().as_ref() {
+                        "show" => {
+                            if let Some(win) = app.get_webview_window("main") {
+                                let _ = win.unminimize();
+                                let _ = win.show();
+                                let _ = win.set_focus();
+                            }
+                        }
+                        "quit" => app.exit(0),
+                        _ => {}
+                    }
+                })
                 .on_tray_icon_event(|tray, event| {
                     // Left click: surface + focus the window. The frontend's
                     // window-focus listener then clears all idle reminders.
