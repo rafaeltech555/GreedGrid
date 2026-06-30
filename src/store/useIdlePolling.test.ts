@@ -7,8 +7,7 @@ vi.mock("../lib/ipc", () => ({
   setIdleIndicator: vi.fn(),
 }));
 
-import { termList } from "../lib/ipc";
-import { setIdleIndicator } from "../lib/ipc";
+import { termList, setIdleIndicator } from "../lib/ipc";
 const mockSetIdle = vi.mocked(setIdleIndicator);
 import { useIdleStore } from "./idleStore";
 import { useLayoutStore } from "./layoutStore";
