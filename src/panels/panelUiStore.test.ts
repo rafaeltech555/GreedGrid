@@ -4,7 +4,12 @@ import { usePanelUiStore } from "./panelUiStore";
 const u = () => usePanelUiStore.getState();
 
 beforeEach(() =>
-  usePanelUiStore.setState({ pickerCellId: null, modal: null, dropMenu: null }),
+  usePanelUiStore.setState({
+    pickerCellId: null,
+    modal: null,
+    dropMenu: null,
+    maximizedCellId: null,
+  }),
 );
 
 describe("panelUiStore", () => {
@@ -64,6 +69,32 @@ describe("panelUiStore", () => {
       expect(u().modal).not.toBeNull();
       u().openDropMenu(menu);
       expect(u().modal).toBeNull();
+    });
+  });
+
+  describe("maximize", () => {
+    it("defaults maximizedCellId to null", () => {
+      expect(u().maximizedCellId).toBeNull();
+    });
+
+    it("maximizeCell sets the id, restoreCell clears it", () => {
+      u().maximizeCell("c1-r1");
+      expect(u().maximizedCellId).toBe("c1-r1");
+      u().restoreCell();
+      expect(u().maximizedCellId).toBeNull();
+    });
+
+    it("toggleMaximize sets when different, clears when same", () => {
+      u().toggleMaximize("c1-r1");
+      expect(u().maximizedCellId).toBe("c1-r1");
+      u().toggleMaximize("c1-r1");
+      expect(u().maximizedCellId).toBeNull();
+    });
+
+    it("toggleMaximize switches target when another cell is maximized", () => {
+      u().maximizeCell("c1-r1");
+      u().toggleMaximize("c2-r1");
+      expect(u().maximizedCellId).toBe("c2-r1");
     });
   });
 });

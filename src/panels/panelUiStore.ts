@@ -25,6 +25,8 @@ interface PanelUiState {
   dropMenu: DropMenuState | null;
   /** Whether the toolbar's workspace "Load" dropdown is open (a grid overlay). */
   workspaceMenuOpen: boolean;
+  /** Cell currently blown up to fill the whole grid, if any (never persisted). */
+  maximizedCellId: string | null;
 
   openPicker: (cellId: string) => void;
   closePicker: () => void;
@@ -34,6 +36,9 @@ interface PanelUiState {
   openDropMenu: (menu: DropMenuState) => void;
   closeDropMenu: () => void;
   setWorkspaceMenuOpen: (open: boolean) => void;
+  maximizeCell: (cellId: string) => void;
+  restoreCell: () => void;
+  toggleMaximize: (cellId: string) => void;
 }
 
 export const usePanelUiStore = create<PanelUiState>((set) => ({
@@ -41,6 +46,7 @@ export const usePanelUiStore = create<PanelUiState>((set) => ({
   modal: null,
   dropMenu: null,
   workspaceMenuOpen: false,
+  maximizedCellId: null,
 
   openPicker: (cellId) => set({ pickerCellId: cellId, modal: null }),
   closePicker: () => set({ pickerCellId: null }),
@@ -52,4 +58,10 @@ export const usePanelUiStore = create<PanelUiState>((set) => ({
   openDropMenu: (menu) => set({ dropMenu: menu, pickerCellId: null, modal: null }),
   closeDropMenu: () => set({ dropMenu: null }),
   setWorkspaceMenuOpen: (open) => set({ workspaceMenuOpen: open }),
+  maximizeCell: (cellId) => set({ maximizedCellId: cellId }),
+  restoreCell: () => set({ maximizedCellId: null }),
+  toggleMaximize: (cellId) =>
+    set((s) => ({
+      maximizedCellId: s.maximizedCellId === cellId ? null : cellId,
+    })),
 }));
